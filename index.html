@@ -4,24 +4,278 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#111820">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Foodtruck Ventas</title>
+  <link rel="icon" href="app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="app-icon.svg">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="owner.css">
   <link rel="stylesheet" href="mobile-dashboard.css">
   <link rel="stylesheet" href="delivery-view.css">
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
-  <aside class="sidebar" aria-label="Navegación del panel"><a class="brand" href="#resumen"><span class="brand-mark">F</span><span>FOODTRUCK<small>VENTAS</small></span></a><nav><button class="nav-link active" data-view="resumen"><span>▦</span>Resumen</button><button class="nav-link" data-view="cierre"><span>＋</span>Cierre diario</button><button class="nav-link" data-view="repartos"><span>⌁</span>Repartos <b class="pending-count" id="pending-count">0</b></button><button class="nav-link" data-view="reportes"><span>◷</span>Reportes</button></nav><div class="sidebar-footer"><span class="status-dot"></span> Datos guardados en este dispositivo</div></aside>
-  <main class="app-main">
-    <header class="topbar"><div><p class="breadcrumb">FOODTRUCK / VENTAS</p><h1 id="page-title">Resumen del negocio</h1></div><div class="top-date"><span class="calendar-icon">▣</span><span id="today-label"></span></div></header>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <a class="brand" href="#resumen" data-view-link="resumen">
+        <span class="brand-mark">F</span>
+        <span class="brand-name">FOODTRUCK<small>VENTAS</small></span>
+      </a>
+      <nav class="sidebar-nav" aria-label="Secciones">
+        <button class="nav-link active" data-view="resumen" type="button" aria-current="page">
+          <i class="icon" data-lucide="layout-dashboard" aria-hidden="true"></i>
+          <span>Resumen</span>
+        </button>
+        <button class="nav-link" data-view="cierre" type="button">
+          <i class="icon" data-lucide="plus" aria-hidden="true"></i>
+          <span>Cierre diario</span>
+        </button>
+        <button class="nav-link" data-view="repartos" type="button">
+          <i class="icon" data-lucide="bike" aria-hidden="true"></i>
+          <span>Repartos</span>
+          <b class="pending-count" id="pending-count">0</b>
+        </button>
+        <button class="nav-link" data-view="reportes" type="button">
+          <i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i>
+          <span>Reportes</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>Guardado en este dispositivo</span>
+      </div>
+    </aside>
 
-    <section class="view active-view" id="view-resumen" aria-label="Resumen del negocio"><div class="welcome-row"><div><p class="eyebrow">Panel del dueño</p><h2>Hola, aquí está tu negocio.</h2><p class="muted">Revisa el rendimiento acumulado y registra el cierre de hoy.</p></div><button class="primary-button" data-view-link="cierre">+ Registrar cierre</button></div><div class="metric-grid"><article class="metric-card main-metric"><div class="metric-icon">$</div><p>Ventas de hoy</p><strong id="summary-today">$0</strong><small id="summary-orders">0 productos vendidos</small></article><article class="metric-card"><div class="metric-icon soft">↗</div><p>Esta semana</p><strong id="summary-week">$0</strong><small id="summary-week-days">0 días registrados</small></article><article class="metric-card"><div class="metric-icon warm">▥</div><p>Este mes</p><strong id="summary-month">$0</strong><small id="summary-month-days">0 días registrados</small></article><article class="metric-card"><div class="metric-icon blue">◷</div><p>Promedio diario</p><strong id="summary-average">$0</strong><small>sobre días registrados</small></article></div><div class="dashboard-grid"><article class="panel chart-panel"><div class="panel-head"><div><p class="eyebrow">Actividad</p><h3>Ventas de los últimos 7 días</h3></div><span class="legend"><i></i> Total vendido</span></div><div class="bar-chart" id="week-chart"></div></article><article class="panel quick-panel"><div class="panel-head"><div><p class="eyebrow">Accesos rápidos</p><h3>Gestiona tu día</h3></div></div><button class="quick-action" data-view-link="cierre"><span class="quick-icon">＋</span><span><b>Nuevo cierre diario</b><small>Ingresa lo vendido hoy</small></span><strong>→</strong></button><button class="quick-action" data-view-link="reportes"><span class="quick-icon">◷</span><span><b>Ver reportes</b><small>Semana, mes y año</small></span><strong>→</strong></button></article></div><article class="panel recent-panel"><div class="panel-head"><div><p class="eyebrow">Historial</p><h3>Últimos cierres</h3></div><button class="text-button" data-view-link="reportes">Ver todos →</button></div><div id="recent-sales"></div></article></section>
+    <main class="app-main">
+      <header class="topbar">
+        <div>
+          <p class="breadcrumb">FOODTRUCK / VENTAS</p>
+          <h1 id="page-title">Resumen del negocio</h1>
+        </div>
+        <div class="date-chip" aria-label="Fecha de hoy">
+          <i class="icon" data-lucide="calendar-days" aria-hidden="true"></i>
+          <span id="today-label"></span>
+        </div>
+      </header>
 
-    <section class="view" id="view-cierre" aria-label="Cierre diario"><div class="section-intro"><div><p class="eyebrow">Registro manual + cálculo automático</p><h2 id="cierre-title">Cierre del día</h2><p class="muted">Ingresa cuántas unidades vendiste. Los subtotales y el total se calculan solos.</p></div><label class="date-input">Fecha del cierre<input type="date" id="sale-date"></label></div><div class="closing-layout"><div class="product-sheet panel" aria-label="Productos vendidos"><div class="sheet-head"><div><p class="eyebrow">Carta Pichangas</p><h3>Productos vendidos</h3></div><button class="text-button" id="reset-quantities">Limpiar cantidades</button></div><div class="product-groups" id="product-groups"></div></div><aside class="closing-summary panel" aria-label="Resumen del cierre"><p class="eyebrow">Resultado del día</p><h3>Resumen</h3><div class="summary-lines"><div><span>Productos</span><strong id="closing-products">0</strong></div><div><span>Ventas menú</span><strong id="closing-menu">$0</strong></div><div><span>Bebidas</span><strong id="closing-drinks">$0</strong></div><div><span>Repartos</span><strong id="closing-deliveries">$0</strong></div></div><div class="total-box"><span>Total del día</span><strong id="closing-total">$0</strong></div><div class="manual-section drinks-section"><div><p>Bebidas</p><small>Ingreso manual del total vendido</small></div><label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0"></label></div><div class="manual-section delivery-section"><div><p>Repartos registrados</p><small><b id="closing-delivery-count">0</b> entregas · se suma desde la lista</small></div><button class="text-button" data-view-link="repartos" type="button">Ver lista →</button></div><label class="notes-field">Nota del cierre<textarea id="sale-note" rows="3" placeholder="Ej. Evento en plaza, faltó stock de..." ></textarea></label><button class="save-button" id="save-sale">Guardar cierre del día <span>✓</span></button></aside></div></section>
+      <section class="view active-view" id="view-resumen" aria-label="Resumen del negocio">
+        <div class="page-content">
+          <div class="page-intro">
+            <p class="eyebrow">Panel del dueño</p>
+            <h2>Hola, aquí está tu negocio.</h2>
+            <p class="muted">Registra el cierre del día y revisa cómo avanza tu operación.</p>
+          </div>
 
-    <section class="view" id="view-repartos" aria-label="Repartos pendientes"><div class="section-intro"><div><p class="eyebrow">Registro en tiempo real</p><h2>Repartos del día</h2><p class="muted">El repartidor agrega cada entrega aquí. Quedan pendientes hasta cerrar el día.</p></div><div class="delivery-totals"><strong id="delivery-list-total">$0</strong><span><b id="delivery-list-count">0</b> repartos pendientes</span></div></div><div class="delivery-layout"><section class="panel delivery-form-card"><div class="panel-head"><div><p class="eyebrow">Nueva entrega</p><h3>Agregar reparto</h3></div><span class="delivery-live"><i></i> En vivo</span></div><form id="delivery-form"><label>Referencia o cliente<input id="delivery-name" required placeholder="Ej. Pedido #24 / Camila"></label><label>Monto cobrado<input id="delivery-amount" required type="number" min="0" step="100" placeholder="$ 0"></label><button class="save-button" type="submit">Agregar a la lista <span>＋</span></button></form></section><section class="panel delivery-list-card"><div class="panel-head"><div><p class="eyebrow">Pendientes de cierre</p><h3>Entregas de hoy</h3></div><button class="text-button" id="clear-deliveries" type="button">Vaciar lista</button></div><div id="delivery-list"><p class="empty-deliveries">Todavía no hay repartos registrados.</p></div></section></div></section>
-    <section class="view" id="view-reportes" aria-label="Reportes de ventas"><div class="section-intro"><div><p class="eyebrow">Rendimiento acumulado</p><h2>Reportes</h2><p class="muted">Consulta lo vendido en cada periodo.</p></div><button class="secondary-button" id="export-report">Descargar resumen</button></div><div class="period-tabs"><button class="period-tab active" data-period="week">Esta semana</button><button class="period-tab" data-period="month">Este mes</button><button class="period-tab" data-period="year">Este año</button></div><div class="report-grid"><article class="panel report-total"><p class="eyebrow">Total del periodo</p><strong id="report-total">$0</strong><span id="report-days">0 días registrados</span></article><article class="panel"><p class="eyebrow">Productos vendidos</p><strong class="report-number" id="report-products">0</strong><span>unidades</span></article><article class="panel"><p class="eyebrow">Mejor día</p><strong class="report-number" id="report-best">$0</strong><span id="report-best-date">Sin datos</span></article></div><article class="panel report-table"><div class="panel-head"><div><p class="eyebrow">Detalle</p><h3>Cierres registrados</h3></div></div><div id="report-rows"></div></article></section>
-  </main>
-  <div class="toast" id="toast"></div><script src="app.js"></script>
+          <section class="command-hero" aria-label="Cierre de hoy">
+            <div class="hero-top">
+              <div>
+                <span class="ticket-label"><i class="icon" data-lucide="receipt-text" aria-hidden="true"></i>Cierre de hoy</span>
+                <span class="hero-status" id="hero-status">Aún no registrado</span>
+              </div>
+              <strong class="hero-total" id="summary-today">$0</strong>
+            </div>
+            <div class="hero-bottom">
+              <div>
+                <p class="hero-title">Ventas del día</p>
+                <p class="hero-helper" id="summary-orders">Ingresa tus productos, bebidas y repartos para cerrar la jornada.</p>
+              </div>
+              <button class="primary-cta" data-view-link="cierre" type="button">
+                Registrar cierre
+                <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </section>
+
+          <section class="metrics-band" aria-label="Resumen de periodos">
+            <div class="metric-cell">
+              <p class="metric-label">Esta semana</p>
+              <strong class="metric-value" id="summary-week">$0</strong>
+              <span class="metric-note" id="summary-week-days">0 días registrados</span>
+            </div>
+            <div class="metric-cell">
+              <p class="metric-label">Este mes</p>
+              <strong class="metric-value" id="summary-month">$0</strong>
+              <span class="metric-note" id="summary-month-days">0 días registrados</span>
+            </div>
+            <div class="metric-cell">
+              <p class="metric-label">Promedio diario</p>
+              <strong class="metric-value" id="summary-average">$0</strong>
+              <span class="metric-note">Sobre días registrados</span>
+            </div>
+          </section>
+
+          <section class="flat-section stats-section" aria-labelledby="week-stats-title">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Estadísticas</p>
+                <h3 class="section-title" id="week-stats-title">Ventas de los últimos 7 días</h3>
+              </div>
+              <span class="section-meta"><i class="icon" data-lucide="chart-column" aria-hidden="true"></i>CLP · por día</span>
+            </div>
+            <div class="stats-empty" id="week-stats-empty" hidden>
+              <span class="empty-mark"><i class="icon" data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i></span>
+              <div><strong>Aún no hay ventas para graficar</strong><p>Registra un cierre para ver el ritmo de tu semana.</p></div>
+              <button class="inline-action" data-view-link="cierre" type="button">Registrar cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button>
+            </div>
+            <div class="stats-chart-shell" id="week-stats-chart" hidden>
+              <svg id="week-stats-svg" class="stats-svg" viewBox="0 0 760 260" role="img" aria-labelledby="week-stats-title week-stats-summary"></svg>
+              <div class="stats-tooltip" id="week-stats-tooltip" role="status" aria-live="polite" hidden></div>
+            </div>
+            <p class="stats-summary visually-hidden" id="week-stats-summary"></p>
+            <ol class="visually-hidden" id="week-stats-accessible"></ol>
+          </section>
+
+          <section class="flat-section" aria-label="Actividad de la semana">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Actividad de la semana</p>
+                <h3 class="section-title">Ventas recientes</h3>
+              </div>
+              <span class="section-meta"><i class="icon" data-lucide="calendar-range" aria-hidden="true"></i>Últimos 7 días</span>
+            </div>
+            <div id="activity-content"></div>
+          </section>
+
+          <section class="flat-section delivery-section" aria-label="Repartos pendientes">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Operación en curso</p>
+                <h3 class="section-title">Repartos pendientes</h3>
+              </div>
+              <span class="section-meta"><i class="icon" data-lucide="bike" aria-hidden="true"></i>Hoy</span>
+            </div>
+            <div id="dashboard-delivery"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-cierre" aria-label="Cierre diario">
+        <div class="page-content">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Registro manual + cálculo automático</p>
+              <h2 id="cierre-title">Cierre del día</h2>
+              <p class="muted">Ingresa cuántas unidades vendiste. Los subtotales y el total se calculan solos.</p>
+            </div>
+            <label class="date-input">Fecha del cierre<input type="date" id="sale-date"></label>
+          </div>
+
+          <div class="closing-layout">
+            <section class="product-sheet" aria-label="Productos vendidos">
+              <div class="sheet-head">
+                <div>
+                  <p class="eyebrow">Carta Pichangas</p>
+                  <h3>Productos vendidos</h3>
+                </div>
+                <button class="text-button" id="reset-quantities" type="button">Limpiar cantidades</button>
+              </div>
+              <p class="sheet-note">Usa una fila por variante. Los productos con precio manual muestran su importe aquí.</p>
+              <div class="product-groups" id="product-groups"></div>
+            </section>
+
+            <aside class="closing-summary" aria-label="Resumen del cierre">
+              <p class="eyebrow">Resultado del día</p>
+              <h3>Resumen</h3>
+              <div class="summary-lines">
+                <div><span>Productos</span><strong id="closing-products">0</strong></div>
+                <div><span>Ventas menú</span><strong id="closing-menu">$0</strong></div>
+                <div><span>Bebidas</span><strong id="closing-drinks">$0</strong></div>
+                <div><span>Repartos</span><strong id="closing-deliveries">$0</strong></div>
+              </div>
+              <div class="total-box"><span>Total del día</span><strong id="closing-total">$0</strong></div>
+              <div class="manual-section drinks-section">
+                <div><p>Bebidas</p><small>Ingreso manual del total vendido</small></div>
+                <label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
+              </div>
+              <div class="manual-delivery-section manual-section">
+                <div><p>Repartos registrados</p><small><b id="closing-delivery-count">0</b> entregas · se suma desde la lista</small></div>
+                <button class="text-button" data-view-link="repartos" type="button">Ver lista <span aria-hidden="true">→</span></button>
+              </div>
+              <label class="notes-field">Nota del cierre<textarea id="sale-note" rows="3" placeholder="Ej. Evento en plaza, faltó stock de..."></textarea></label>
+              <button class="save-button" id="save-sale" type="button">Guardar cierre del día <span aria-hidden="true">✓</span></button>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-repartos" aria-label="Repartos pendientes">
+        <div class="page-content">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Registro en tiempo real</p>
+              <h2>Repartos del día</h2>
+              <p class="muted">El repartidor agrega cada entrega aquí. Quedan pendientes hasta cerrar el día.</p>
+            </div>
+            <div class="delivery-totals"><strong id="delivery-list-total">$0</strong><span><b id="delivery-list-count">0</b> repartos pendientes</span></div>
+          </div>
+
+          <div class="delivery-layout">
+            <section class="panel delivery-form-card">
+              <div class="panel-head"><div><p class="eyebrow">Nueva entrega</p><h3>Agregar reparto</h3></div><span class="delivery-local"><i></i> Guardado local</span></div>
+              <form id="delivery-form" novalidate>
+                <label for="delivery-name">Referencia o cliente<input id="delivery-name" required placeholder="Ej. Pedido #24 / Camila" autocomplete="off" aria-describedby="delivery-name-error"><small class="field-error" id="delivery-name-error" role="alert"></small></label>
+                <label for="delivery-amount">Monto cobrado<input id="delivery-amount" required type="number" min="1" step="100" placeholder="$ 0" inputmode="numeric" aria-describedby="delivery-amount-error"><small class="field-error" id="delivery-amount-error" role="alert"></small></label>
+                <button class="save-button" type="submit">Agregar a la lista <span aria-hidden="true">＋</span></button>
+              </form>
+            </section>
+            <section class="panel delivery-list-card">
+              <div class="panel-head"><div><p class="eyebrow">Pendientes de cierre</p><h3>Entregas de hoy</h3></div><button class="text-button" id="clear-deliveries" type="button">Vaciar lista</button></div>
+              <div id="delivery-list"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-reportes" aria-label="Reportes de ventas">
+        <div class="page-content">
+          <div class="section-intro">
+            <div><p class="eyebrow">Rendimiento acumulado</p><h2>Reportes</h2><p class="muted">Consulta lo vendido en cada periodo.</p></div>
+            <button class="secondary-button" id="export-report" type="button"><i class="icon" data-lucide="download" aria-hidden="true"></i>Descargar resumen</button>
+          </div>
+          <div class="period-tabs" role="tablist" aria-label="Periodo del reporte">
+            <button class="period-tab active" id="tab-week" type="button" role="tab" aria-selected="true" aria-controls="report-panel" tabindex="0" data-period="week">Esta semana</button>
+            <button class="period-tab" id="tab-month" type="button" role="tab" aria-selected="false" aria-controls="report-panel" tabindex="-1" data-period="month">Este mes</button>
+            <button class="period-tab" id="tab-year" type="button" role="tab" aria-selected="false" aria-controls="report-panel" tabindex="-1" data-period="year">Este año</button>
+          </div>
+          <div id="report-panel" role="tabpanel" tabindex="0" aria-labelledby="tab-week">
+            <div class="report-grid">
+              <article class="report-total"><p class="eyebrow">Total del periodo</p><strong id="report-total">$0</strong><span id="report-days">0 días registrados</span></article>
+              <article class="report-stat"><p class="eyebrow">Productos vendidos</p><strong id="report-products">0</strong><span>unidades</span></article>
+              <article class="report-stat"><p class="eyebrow">Mejor día</p><strong id="report-best">Sin datos</strong><span id="report-best-date">Registra un cierre</span></article>
+            </div>
+            <section class="report-table" aria-label="Detalle de cierres">
+              <div class="panel-head"><div><p class="eyebrow">Detalle</p><h3>Cierres registrados</h3></div></div>
+              <div id="report-rows"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-bottom-nav" aria-label="Navegación móvil">
+      <button class="mobile-nav-item active" data-view="resumen" type="button" aria-current="page"><i class="icon" data-lucide="layout-dashboard" aria-hidden="true"></i><span>Resumen</span></button>
+      <button class="mobile-nav-item" data-view="cierre" type="button"><i class="icon" data-lucide="plus" aria-hidden="true"></i><span>Cierre</span></button>
+      <button class="mobile-nav-item" data-view="repartos" type="button"><i class="icon" data-lucide="bike" aria-hidden="true"></i><span>Repartos</span></button>
+      <button class="mobile-nav-item" data-view="reportes" type="button"><i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i><span>Reportes</span></button>
+    </nav>
+  </div>
+
+  <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="dialog-icon"><i class="icon" data-lucide="alert-circle" aria-hidden="true"></i></div>
+    <h2 id="confirm-title">¿Confirmar acción?</h2>
+    <p id="confirm-message"></p>
+    <div class="dialog-actions"><button class="secondary-button" id="confirm-cancel" type="button">Cancelar</button><button class="danger-button" id="confirm-accept" type="button">Confirmar</button></div>
+  </dialog>
+
+  <button class="install-app" id="install-app" type="button" hidden><i class="icon" data-lucide="download" aria-hidden="true"></i><span>Instalar app</span></button>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+    <i class="icon" data-lucide="check-circle-2" aria-hidden="true"></i>
+    <span id="toast-message"></span>
+    <button id="toast-close" type="button" aria-label="Cerrar aviso"><i class="icon" data-lucide="x" aria-hidden="true"></i></button>
+  </div>
 </body>
 </html>
