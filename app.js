@@ -12,12 +12,14 @@ const menu = {
 };
 
 const allProducts = Object.entries(menu).flatMap(([group, items]) => items.map((item, index) => ({...item, group, id:`${group}-${index}`})));
-const state = { quantities: {}, manualPrices: {}, drinks: 0 };
+const state = { quantities: {}, manualPrices: {}, drinks: 0, workerPayment: 0 };
 const STORAGE_KEY = 'pichangas-daily-sales';
 const PENDING_DELIVERIES_KEY = 'pichangas-pending-deliveries';
-const VIEW_TITLES = { resumen:'Resumen del negocio', cierre:'Cierre diario', repartos:'Repartos del día', reportes:'Reportes' };
+const EXPENSES_KEY = 'pichangas-business-expenses';
+const VIEW_TITLES = { resumen:'Resumen del negocio', cierre:'Cierre diario', repartos:'Repartos del día', reportes:'Reportes generales', gastos:'Gastos del negocio' };
 const REPORT_PERIODS = { week:'Esta semana', month:'Este mes', year:'Este año' };
 const WEEK_STATS_DAYS = 7;
+const DATE_LOCALE = 'es-CL';
 const today = new Date();
 let activeReportPeriod = 'week';
 let storageNoticeShown = false;
@@ -28,9 +30,13 @@ let confirmResolver = null;
 let confirmTrigger = null;
 let deferredInstallPrompt = null;
 
-const money = (value) => `$${Math.round(Number(value) || 0).toLocaleString('es-CL')}`;
+const money = (value) => {
+  const amount = Math.round(Number(value) || 0);
+  return amount < 0 ? `-$${Math.abs(amount).toLocaleString(DATE_LOCALE)}` : `$${amount.toLocaleString(DATE_LOCALE)}`;
+};
 const isoDate = (date) => { const local = new Date(date); local.setMinutes(local.getMinutes() - local.getTimezoneOffset()); return local.toISOString().slice(0,10); };
-const prettyDate = (date) => new Date(`${date}T12:00:00`).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}).replace('.', '');
+const prettyDate = (date) => new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE,{day:'2-digit',month:'short',year:'numeric'}).replace('.', '');
+const numericDate = (date) => new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE,{day:'2-digit',month:'2-digit',year:'numeric'});
 const escapeHTML = (value) => String(value ?? '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 const slugify = (value) => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
 const formatTodayLabel = (date) => `Hoy · ${prettyDate(isoDate(date))}`;
@@ -38,6 +44,18 @@ const saleTotal = (sale) => Number(sale?.menuTotal || 0) + Number(sale?.drinks |
 
 function refreshIcons(){
   if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function renderExpenses(){
+  const expenses = getExpenses().sort((a, b) => b.date.localeCompare(a.date));
+  const totalElement = document.querySelector('#expense-total');
+  const countElement = document.querySelector('#expense-count');
+  const list = document.querySelector('#expense-list');
+  if (totalElement) totalElement.textContent = `−${money(expensesTotal(expenses))}`;
+  if (countElement) countElement.textContent = `${expenses.length} ${expenses.length === 1 ? 'gasto' : 'gastos'}`;
+  if (!list) return;
+  list.innerHTML = expenses.length ? expenses.map((expense, index) => `<div class="delivery-row expense-row"><div><b>${escapeHTML(expense.name)}</b><small>${prettyDate(expense.date)} · −${money(expense.amount)}</small></div><button class="remove-delivery" data-remove-expense="${index}" type="button" aria-label="Eliminar gasto de ${escapeHTML(expense.name)}"><i class="icon" data-lucide="trash-2" aria-hidden="true"></i></button></div>`).join('') : `<div class="empty-deliveries"><span class="empty-mark"><i class="icon" data-lucide="wallet-cards" aria-hidden="true"></i></span><div><strong>Sin gastos</strong><p>Agrega una compra para verla aquí.</p></div></div>`;
+  refreshIcons();
 }
 
 function announceStorageIssue(){
@@ -87,6 +105,30 @@ function savePendingDeliveries(items){
   }
 }
 
+function getExpenses(){
+  try {
+    const expenses = JSON.parse(localStorage.getItem(EXPENSES_KEY));
+    return Array.isArray(expenses) ? expenses : [];
+  } catch {
+    announceStorageIssue();
+    return [];
+  }
+}
+
+function saveExpenses(expenses){
+  try {
+    localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+    return true;
+  } catch {
+    announceStorageIssue();
+    return false;
+  }
+}
+
+function expensesTotal(expenses){
+  return expenses.reduce((sum, expense) => sum + Math.max(0, Number(expense.amount) || 0), 0);
+}
+
 function inPeriod(date, period){
   return date >= getPeriodStart(period) && date <= isoDate(new Date());
 }
@@ -116,7 +158,9 @@ function currentTotals(){
   const deliveries = getPendingDeliveries();
   const deliveryTotal = deliveries.reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
   const drinks = Math.max(0, Number(state.drinks) || 0);
-  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, total: menuTotal + drinks + deliveryTotal };
+  const workerPayment = Math.max(0, Number(state.workerPayment) || 0);
+  const total = menuTotal + drinks + deliveryTotal;
+  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, workerPayment, total, netTotal: total - workerPayment };
 }
 
 function renderProducts(){
@@ -166,8 +210,10 @@ function renderClosingSummary(){
     '#closing-menu': money(totals.menuTotal),
     '#closing-drinks': money(totals.drinks),
     '#closing-deliveries': money(totals.deliveries),
+    '#closing-worker-payment': money(totals.workerPayment),
     '#closing-delivery-count': totals.deliveryCount,
-    '#closing-total': money(totals.total)
+    '#closing-total': money(totals.total),
+    '#closing-net-total': money(totals.netTotal)
   };
   Object.entries(values).forEach(([selector, value]) => { const element = document.querySelector(selector); if (element) element.textContent = value; });
   document.querySelectorAll('[data-subtotal]').forEach(element => {
@@ -178,15 +224,20 @@ function renderClosingSummary(){
     element.textContent = money(quantity * unitPrice);
   });
   renderManualPriceErrors();
+  const summary = document.querySelector('.closing-summary');
+  if (summary) summary.classList.toggle('is-complete', totals.total > 0);
 }
 
 function resetClosing(){
   state.quantities = {};
   state.manualPrices = {};
   state.drinks = 0;
+  state.workerPayment = 0;
   const drinksInput = document.querySelector('#drinks-input');
+  const workerPaymentInput = document.querySelector('#worker-payment-input');
   const noteInput = document.querySelector('#sale-note');
   if (drinksInput) drinksInput.value = '';
+  if (workerPaymentInput) workerPaymentInput.value = '';
   if (noteInput) noteInput.value = '';
   renderProducts();
   renderClosingSummary();
@@ -214,15 +265,17 @@ function renderPendingDeliveries(){
   refreshIcons();
 }
 
-function renderDashboardDelivery(items = getPendingDeliveries()){
+function renderDashboardDelivery(){
   const container = document.querySelector('#dashboard-delivery');
   if (!container) return;
-  if (!items.length) {
-    container.innerHTML = `<div class="dashboard-delivery-row"><div class="delivery-label"><i class="icon" data-lucide="package-check" aria-hidden="true"></i><div><strong>Lista al día</strong><small>No hay entregas esperando cierre.</small></div></div><span class="delivery-status"><span class="dot"></span>0 pendientes</span></div>`;
+  const sale = getSales().find(item => item.date === isoDate(today));
+  const count = Number(sale?.deliveryCount || 0);
+  const total = Number(sale?.deliveries || 0);
+  if (!count) {
+    container.innerHTML = `<div class="dashboard-delivery-row"><div class="delivery-label"><i class="icon" data-lucide="package-check" aria-hidden="true"></i><div><strong>Sin repartos hechos</strong><small>Los repartos realizados aparecerán al guardar el cierre.</small></div></div><span class="delivery-status"><span class="dot"></span>0 hoy</span></div>`;
     return;
   }
-  const total = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  container.innerHTML = `<div class="dashboard-delivery-row"><div class="delivery-label"><i class="icon" data-lucide="bike" aria-hidden="true"></i><div><strong>${items.length} entregas pendientes</strong><small>${money(total)} por cerrar en la lista de hoy.</small></div></div><button class="inline-action" data-view-link="repartos" type="button">Ver lista <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
+  container.innerHTML = `<div class="dashboard-delivery-row"><div class="delivery-label"><i class="icon" data-lucide="package-check" aria-hidden="true"></i><div><strong>${count} repartos hechos</strong><small>${money(total)} registrados en el cierre de hoy.</small></div></div><button class="inline-action" data-view-link="repartos" type="button">Ver repartos <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
 }
 
 function buildWeekStats(sales){
@@ -233,8 +286,8 @@ function buildWeekStats(sales){
     const sale = sales.find(item => item.date === key);
     return {
       date: key,
-      label: date.toLocaleDateString('es-CL', {weekday:'short'}).replace('.', ''),
-      shortLabel: date.toLocaleDateString('es-CL', {day:'2-digit', month:'short'}).replace('.', ''),
+      label: date.toLocaleDateString(DATE_LOCALE, {weekday:'short'}).replace('.', ''),
+      shortLabel: date.toLocaleDateString(DATE_LOCALE, {day:'2-digit', month:'short'}).replace('.', ''),
       value: sale ? saleTotal(sale) : 0,
       hasRecord: Boolean(sale),
       isToday: key === isoDate(today)
@@ -348,7 +401,7 @@ function renderActivity(sales){
   if (!container) return;
   const recent = sales.filter(sale => inPeriod(sale.date, 'week')).sort((a, b) => b.date.localeCompare(a.date));
   if (!recent.length) {
-    container.innerHTML = `<div class="empty-activity"><div class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></div><div><h4>Registra un cierre para ver tu semana</h4><p>Cuando guardes el primer cierre, aquí aparecerá la actividad de los últimos 7 días.</p></div><button class="inline-action" data-view-link="cierre" type="button">Ir a cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
+    container.innerHTML = `<div class="empty-activity"><div class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></div><div><h4>Registra un cierre para ver tu semana</h4><p>Usa el botón “Registrar cierre” de arriba para comenzar.</p></div></div>`;
     refreshIcons();
     return;
   }
@@ -366,7 +419,7 @@ function updateDashboard(){
   const heroStatus = document.querySelector('#hero-status');
   if (summaryToday) summaryToday.textContent = money(todayTotal);
   if (heroStatus) heroStatus.textContent = todaySale ? 'Cierre registrado' : 'Aún no registrado';
-  if (summaryOrders) summaryOrders.textContent = todaySale ? `${todaySale.products || 0} productos vendidos hoy.` : 'Ingresa tus productos, bebidas y repartos para cerrar la jornada.';
+  if (summaryOrders) summaryOrders.textContent = todaySale ? 'Resultado neto registrado en reportes.' : 'Ingresa tus productos, bebidas y repartos para cerrar la jornada.';
   const values = {
     '#summary-week': money(week.reduce((sum, sale) => sum + saleTotal(sale), 0)),
     '#summary-week-days': `${week.length} días registrados`,
@@ -378,7 +431,18 @@ function updateDashboard(){
   renderWeekStats(sales);
   renderActivity(sales);
   renderDashboardDelivery();
+  renderDashboardExpenses();
   refreshIcons();
+}
+
+function renderDashboardExpenses(){
+  const container = document.querySelector('#dashboard-expenses');
+  if (!container) return;
+  const expenses = getExpenses().filter(expense => expense.date === isoDate(today));
+  const total = expensesTotal(expenses);
+  container.innerHTML = expenses.length
+    ? `<div class="dashboard-expense-row"><div class="delivery-label"><i class="icon" data-lucide="trending-down" aria-hidden="true"></i><div><strong>−${money(total)}</strong><small>${expenses.length} compras registradas hoy.</small></div></div><button class="inline-action" data-view-link="gastos" type="button">Ver gastos <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`
+    : `<div class="dashboard-expense-row"><div class="delivery-label"><i class="icon" data-lucide="wallet-cards" aria-hidden="true"></i><div><strong>Sin gastos registrados</strong><small>Las compras del carro aparecerán aquí.</small></div></div><button class="inline-action" data-view-link="gastos" type="button">Agregar gasto <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
 }
 
 function setActiveReportTab(period){
@@ -399,19 +463,48 @@ function renderReport(period = activeReportPeriod){
   const sales = getSales().filter(sale => inPeriod(sale.date, period)).sort((a, b) => b.date.localeCompare(a.date));
   const total = sales.reduce((sum, sale) => sum + saleTotal(sale), 0);
   const products = sales.reduce((sum, sale) => sum + Number(sale.products || 0), 0);
-  const best = sales.slice().sort((a, b) => saleTotal(b) - saleTotal(a))[0];
+  const payments = sales.reduce((sum, sale) => sum + Number(sale.workerPayment || 0), 0);
+  const expenses = getExpenses().filter(expense => inPeriod(expense.date, period));
+  const expenseAmount = expensesTotal(expenses);
   const values = {
     '#report-total': money(total),
     '#report-days': `${sales.length} días registrados`,
     '#report-products': products,
-    '#report-best': best ? money(saleTotal(best)) : 'Sin datos',
-    '#report-best-date': best ? prettyDate(best.date) : 'Registra un cierre'
+    '#report-net': money(total - payments - expenseAmount),
+    '#report-payments': `Pagos: ${money(payments)} · Gastos: ${money(expenseAmount)}`
   };
   Object.entries(values).forEach(([selector, value]) => { const element = document.querySelector(selector); if (element) element.textContent = value; });
   const rows = document.querySelector('#report-rows');
   if (!rows) return;
-  rows.innerHTML = sales.length ? sales.map(sale => `<div class="report-row"><div class="report-date"><strong>${prettyDate(sale.date)}</strong><small>${sale.products || 0} productos</small></div><div class="report-breakdown"><span>Menú ${money(sale.menuTotal)}</span><span>Bebidas ${money(sale.drinks)}</span><span>Repartos ${money(sale.deliveries)}</span></div><strong class="report-total-value">${money(saleTotal(sale))}</strong></div>`).join('') : `<div class="report-empty"><span class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></span><div><strong>No hay cierres en ${REPORT_PERIODS[period].toLowerCase()}.</strong><p>Registra un cierre para empezar a ver el rendimiento de tu negocio.</p></div><button class="inline-action" data-view-link="cierre" type="button">Ir a cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
+  rows.innerHTML = sales.length || expenses.length ? [...sales.map(sale => `<div class="report-row"><div class="report-date"><strong>${prettyDate(sale.date)}</strong><small>Cierre · ${sale.products || 0} productos</small></div><div class="report-breakdown"><span>Ventas ${money(saleTotal(sale))}</span><span>Trabajadores ${money(sale.workerPayment)}</span></div><strong class="report-total-value">${money(saleTotal(sale) - Number(sale.workerPayment || 0))}</strong></div>`), ...expenses.map(expense => `<div class="report-row expense-report-row"><div class="report-date"><strong>${prettyDate(expense.date)}</strong><small>Gasto · ${escapeHTML(expense.name)}</small></div><div class="report-breakdown"><span class="negative-value">−${money(expense.amount)}</span></div><strong class="report-total-value negative-value">−${money(expense.amount)}</strong></div>`)].join('') : `<div class="report-empty"><span class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></span><div><strong>No hay movimientos en ${REPORT_PERIODS[period].toLowerCase()}.</strong><p>Registra un cierre o un gasto para empezar a ver el rendimiento.</p></div><button class="inline-action" data-view-link="cierre" type="button">Registrar cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
+  renderReportChart(sales, period);
   refreshIcons();
+}
+
+function renderReportChart(sales, period){
+  const svg = document.querySelector('#report-chart');
+  if (!svg) return;
+  const width = 760;
+  const height = 280;
+  const points = sales.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-12);
+  if (!points.length) {
+    svg.innerHTML = '<text class="report-chart-empty" x="380" y="140" text-anchor="middle">Registra cierres para ver el gráfico</text>';
+    return;
+  }
+  const max = Math.max(...points.map(sale => saleTotal(sale)), 1);
+  const left = 46;
+  const bottom = 38;
+  const chartHeight = 185;
+  const step = (width - left - 24) / points.length;
+  const barWidth = Math.min(34, step * .55);
+  const bars = points.map((sale, index) => {
+    const value = saleTotal(sale);
+    const barHeight = Math.max(3, value / max * chartHeight);
+    const x = left + step * index + (step - barWidth) / 2;
+    const y = height - bottom - barHeight;
+    return `<g><rect class="report-chart-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="5"></rect><text class="report-chart-value" x="${(x + barWidth / 2).toFixed(1)}" y="${Math.max(16, y - 8).toFixed(1)}" text-anchor="middle">${escapeHTML(money(value))}</text><text class="report-chart-label" x="${(x + barWidth / 2).toFixed(1)}" y="${height - 15}" text-anchor="middle">${escapeHTML(prettyDate(sale.date).slice(0, 5))}</text></g>`;
+  }).join('');
+  svg.innerHTML = `<line class="report-chart-axis" x1="${left}" y1="${height - bottom}" x2="${width - 20}" y2="${height - bottom}"></line>${bars}`;
 }
 
 function switchView(view){
@@ -519,7 +612,11 @@ async function saveSale(){
   const nextSales = sales.filter(sale => sale.date !== date);
   nextSales.push({...totals, date, note:document.querySelector('#sale-note').value.trim(), manualPrices:{...state.manualPrices}});
   if (!saveSales(nextSales)) return;
-  if (!savePendingDeliveries([])) return;
+  if (!savePendingDeliveries([])) {
+    saveSales(sales);
+    toast('No se pudo completar el guardado. Tus datos anteriores fueron restaurados.', 'error');
+    return;
+  }
   resetClosing();
   renderPendingDeliveries();
   updateDashboard();
@@ -531,8 +628,8 @@ function exportReport(){
   const sales = getSales().filter(sale => inPeriod(sale.date, activeReportPeriod));
   if (!sales.length) { toast(`No hay cierres en ${REPORT_PERIODS[activeReportPeriod].toLowerCase()}.`, 'info'); return; }
   const escapeCSV = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.note || ''].map(escapeCSV).join(';'));
-  const csv = `Fecha;Productos;Menu;Bebidas;Repartos;Cantidad repartos;Total;Nota\n${rows.join('\n')}`;
+  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.workerPayment || 0, saleTotal(sale) - Number(sale.workerPayment || 0), sale.note || ''].map(escapeCSV).join(';'));
+  const csv = `Fecha;Productos;Menu;Bebidas;Repartos;Cantidad repartos;Total ventas;Pago trabajadores;Resultado neto;Nota\n${rows.join('\n')}`;
   const blob = new Blob([`\ufeff${csv}`], {type:'text/csv;charset=utf-8;'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -572,6 +669,18 @@ function handleDocumentClick(event){
   const reportTab = event.target.closest('.period-tab');
   if (reportTab) { renderReport(reportTab.dataset.period); return; }
   if (event.target.closest('#save-sale')) { saveSale(); return; }
+  const removeExpense = event.target.closest('[data-remove-expense]');
+  if (removeExpense) {
+    const expenses = getExpenses();
+    expenses.splice(Number(removeExpense.dataset.removeExpense), 1);
+    if (saveExpenses(expenses)) { renderExpenses(); updateDashboard(); toast('Gasto eliminado.', 'info'); }
+    return;
+  }
+  if (event.target.closest('#clear-expenses')) {
+    if (!getExpenses().length) { toast('La lista de gastos ya está vacía.', 'info'); return; }
+    askConfirmation({title:'¿Vaciar los gastos?', message:'Se eliminará todo el historial de gastos.', confirmLabel:'Vaciar gastos', trigger:event.target.closest('#clear-expenses')}).then(confirmed => { if (confirmed && saveExpenses([])) { renderExpenses(); updateDashboard(); toast('Gastos eliminados.', 'info'); } });
+    return;
+  }
   if (event.target.closest('#export-report')) { exportReport(); return; }
   if (event.target.closest('#toast-close')) hideToast();
 }
@@ -584,6 +693,10 @@ function handleDocumentInput(event){
   }
   if (target.matches('[data-manual-price]')) {
     state.manualPrices[target.dataset.manualPrice] = Math.max(0, Number(target.value) || 0);
+    renderClosingSummary();
+  }
+  if (target.matches('#worker-payment-input')) {
+    state.workerPayment = Math.max(0, Number(target.value) || 0);
     renderClosingSummary();
   }
   if (target.matches('#drinks-input')) {
@@ -637,8 +750,10 @@ function setupPWA(){
 
 function init(){
   setupPWA();
-  document.querySelector('#today-label').textContent = formatTodayLabel(today);
-  document.querySelector('#sale-date').value = isoDate(today);
+  const saleDate = document.querySelector('#sale-date');
+  saleDate.max = isoDate(today);
+  saleDate.value = isoDate(today);
+  document.querySelector('#sale-date-hint').textContent = `Hoy: ${numericDate(isoDate(today))} · formato local`;
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('input', handleDocumentInput);
   document.addEventListener('keydown', handleTabKeydown);
@@ -654,6 +769,24 @@ function init(){
     renderClosingSummary();
     toast('Reparto agregado a la lista.');
   });
+  document.querySelector('#expense-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const name = document.querySelector('#expense-name');
+    const amount = document.querySelector('#expense-amount');
+    const nameError = document.querySelector('#expense-name-error');
+    const amountError = document.querySelector('#expense-amount-error');
+    nameError.textContent = '';
+    amountError.textContent = '';
+    if (!name.value.trim()) { nameError.textContent = 'Escribe qué compraste.'; name.focus(); return; }
+    if (!(Number(amount.value) > 0)) { amountError.textContent = 'Ingresa un monto mayor que $0.'; amount.focus(); return; }
+    const expenses = getExpenses();
+    expenses.push({name:name.value.trim(), amount:Number(amount.value), date:isoDate(today)});
+    if (!saveExpenses(expenses)) return;
+    event.currentTarget.reset();
+    renderExpenses();
+    updateDashboard();
+    toast('Gasto guardado como plata negativa.');
+  });
   const dialog = document.querySelector('#confirm-dialog');
   dialog.addEventListener('close', () => {
     const result = dialog.returnValue === 'confirm';
@@ -666,6 +799,7 @@ function init(){
   document.querySelector('#confirm-cancel').addEventListener('click', () => dialog.close('cancel'));
   document.querySelector('#confirm-accept').addEventListener('click', () => dialog.close('confirm'));
   bindStatsInteractions();
+  renderExpenses();
   const toastElement = document.querySelector('#toast');
   toastElement.addEventListener('mouseenter', pauseToast);
   toastElement.addEventListener('mouseleave', resumeToast);

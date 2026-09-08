@@ -11,11 +11,11 @@
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="app-icon.svg">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="owner.css">
+  <link rel="stylesheet" href="owner.css?v=5">
   <link rel="stylesheet" href="mobile-dashboard.css">
   <link rel="stylesheet" href="delivery-view.css">
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=3" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -42,6 +42,10 @@
           <i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i>
           <span>Reportes</span>
         </button>
+        <button class="nav-link" data-view="gastos" type="button">
+          <i class="icon" data-lucide="wallet-cards" aria-hidden="true"></i>
+          <span>Gastos</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <span class="status-dot" aria-hidden="true"></span>
@@ -54,10 +58,6 @@
         <div>
           <p class="breadcrumb">FOODTRUCK / VENTAS</p>
           <h1 id="page-title">Resumen del negocio</h1>
-        </div>
-        <div class="date-chip" aria-label="Fecha de hoy">
-          <i class="icon" data-lucide="calendar-days" aria-hidden="true"></i>
-          <span id="today-label"></span>
         </div>
       </header>
 
@@ -118,7 +118,6 @@
             <div class="stats-empty" id="week-stats-empty" hidden>
               <span class="empty-mark"><i class="icon" data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i></span>
               <div><strong>Aún no hay ventas para graficar</strong><p>Registra un cierre para ver el ritmo de tu semana.</p></div>
-              <button class="inline-action" data-view-link="cierre" type="button">Registrar cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button>
             </div>
             <div class="stats-chart-shell" id="week-stats-chart" hidden>
               <svg id="week-stats-svg" class="stats-svg" viewBox="0 0 760 260" role="img" aria-labelledby="week-stats-title week-stats-summary"></svg>
@@ -139,15 +138,25 @@
             <div id="activity-content"></div>
           </section>
 
-          <section class="flat-section delivery-section" aria-label="Repartos pendientes">
+          <section class="flat-section delivery-section" aria-label="Repartos hechos">
             <div class="section-head">
               <div>
                 <p class="eyebrow">Operación en curso</p>
-                <h3 class="section-title">Repartos pendientes</h3>
+                <h3 class="section-title">Repartos hechos</h3>
               </div>
               <span class="section-meta"><i class="icon" data-lucide="bike" aria-hidden="true"></i>Hoy</span>
             </div>
             <div id="dashboard-delivery"></div>
+          </section>
+          <section class="flat-section expense-section" aria-label="Gastos de hoy">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Egresos del negocio</p>
+                <h3 class="section-title">Gastos de hoy</h3>
+              </div>
+              <span class="section-meta"><i class="icon" data-lucide="trending-down" aria-hidden="true"></i>Plata negativa</span>
+            </div>
+            <div id="dashboard-expenses"></div>
           </section>
         </div>
       </section>
@@ -160,7 +169,11 @@
               <h2 id="cierre-title">Cierre del día</h2>
               <p class="muted">Ingresa cuántas unidades vendiste. Los subtotales y el total se calculan solos.</p>
             </div>
-            <label class="date-input">Fecha del cierre<input type="date" id="sale-date"></label>
+            <label class="date-input" for="sale-date">
+              <span>Fecha del cierre <b class="today-indicator"><i></i> Hoy</b></span>
+              <input type="date" id="sale-date" lang="es-CL" inputmode="none" aria-describedby="sale-date-hint">
+              <small id="sale-date-hint">Elige el día del cierre.</small>
+            </label>
           </div>
 
           <div class="closing-layout">
@@ -180,15 +193,17 @@
               <p class="eyebrow">Resultado del día</p>
               <h3>Resumen</h3>
               <div class="summary-lines">
-                <div><span>Productos</span><strong id="closing-products">0</strong></div>
-                <div><span>Ventas menú</span><strong id="closing-menu">$0</strong></div>
-                <div><span>Bebidas</span><strong id="closing-drinks">$0</strong></div>
-                <div><span>Repartos</span><strong id="closing-deliveries">$0</strong></div>
+                <div><span>Total ventas</span><strong id="closing-total">$0</strong></div>
+                <div><span>Pago trabajadores</span><strong id="closing-worker-payment">$0</strong></div>
               </div>
-              <div class="total-box"><span>Total del día</span><strong id="closing-total">$0</strong></div>
+              <div class="total-box"><span>Resultado del día</span><strong id="closing-net-total">$0</strong></div>
               <div class="manual-section drinks-section">
                 <div><p>Bebidas</p><small>Ingreso manual del total vendido</small></div>
                 <label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
+              </div>
+              <div class="manual-section workers-section">
+                <div><p>Pago a trabajadores</p><small>Ingresa el total manual en pesos chilenos</small></div>
+                <label class="manual-field"><span>Total CLP</span><input type="number" id="worker-payment-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
               </div>
               <div class="manual-delivery-section manual-section">
                 <div><p>Repartos registrados</p><small><b id="closing-delivery-count">0</b> entregas · se suma desde la lista</small></div>
@@ -201,7 +216,7 @@
         </div>
       </section>
 
-      <section class="view" id="view-repartos" aria-label="Repartos pendientes">
+      <section class="view" id="view-repartos" aria-label="Repartos del día">
         <div class="page-content">
           <div class="section-intro">
             <div>
@@ -209,7 +224,7 @@
               <h2>Repartos del día</h2>
               <p class="muted">El repartidor agrega cada entrega aquí. Quedan pendientes hasta cerrar el día.</p>
             </div>
-            <div class="delivery-totals"><strong id="delivery-list-total">$0</strong><span><b id="delivery-list-count">0</b> repartos pendientes</span></div>
+            <div class="delivery-totals"><strong id="delivery-list-total">$0</strong><span><b id="delivery-list-count">0</b> repartos por cerrar</span></div>
           </div>
 
           <div class="delivery-layout">
@@ -244,10 +259,36 @@
             <div class="report-grid">
               <article class="report-total"><p class="eyebrow">Total del periodo</p><strong id="report-total">$0</strong><span id="report-days">0 días registrados</span></article>
               <article class="report-stat"><p class="eyebrow">Productos vendidos</p><strong id="report-products">0</strong><span>unidades</span></article>
-              <article class="report-stat"><p class="eyebrow">Mejor día</p><strong id="report-best">Sin datos</strong><span id="report-best-date">Registra un cierre</span></article>
+              <article class="report-stat"><p class="eyebrow">Resultado neto</p><strong id="report-net">$0</strong><span id="report-payments">Pagos: $0</span></article>
             </div>
+            <section class="report-chart-section" aria-label="Gráfico general del periodo">
+              <div class="panel-head"><div><p class="eyebrow">Gráfico general</p><h3>Ventas, pagos y resultado</h3></div></div>
+              <div class="report-chart-wrap"><svg id="report-chart" class="report-chart" viewBox="0 0 760 280" role="img" aria-label="Gráfico de ventas del periodo"></svg></div>
+            </section>
+            <section class="view" id="view-gastos" aria-label="Gastos del negocio">
+              <div class="page-content">
+                <div class="section-intro">
+                  <div><p class="eyebrow">Egresos manuales</p><h2>Gastos</h2><p class="muted">Registra compras del carro y otros gastos. Se descuentan del resultado.</p></div>
+                  <div class="delivery-totals"><strong id="expense-total">$0</strong><span id="expense-count">0 gastos</span></div>
+                </div>
+                <div class="delivery-layout">
+                  <section class="panel delivery-form-card">
+                    <div class="panel-head"><div><p class="eyebrow">Nuevo gasto</p><h3>Agregar compra</h3></div><span class="delivery-local"><i></i> Guardado local</span></div>
+                    <form id="expense-form" novalidate>
+                      <label for="expense-name">Qué compraste<input id="expense-name" required placeholder="Ej. Gas, pan, aceite" autocomplete="off" aria-describedby="expense-name-error"><small class="field-error" id="expense-name-error" role="alert"></small></label>
+                      <label for="expense-amount">Monto gastado<input id="expense-amount" required type="number" min="1" step="100" placeholder="$ 0" inputmode="numeric" aria-describedby="expense-amount-error"><small class="field-error" id="expense-amount-error" role="alert"></small></label>
+                      <button class="save-button" type="submit">Guardar gasto <span aria-hidden="true">−</span></button>
+                    </form>
+                  </section>
+                  <section class="panel delivery-list-card">
+                    <div class="panel-head"><div><p class="eyebrow">Historial</p><h3>Gastos registrados</h3></div><button class="text-button" id="clear-expenses" type="button">Vaciar lista</button></div>
+                    <div id="expense-list"></div>
+                  </section>
+                </div>
+              </div>
+            </section>
             <section class="report-table" aria-label="Detalle de cierres">
-              <div class="panel-head"><div><p class="eyebrow">Detalle</p><h3>Cierres registrados</h3></div></div>
+              <div class="panel-head"><div><p class="eyebrow">Detalle completo</p><h3>Cierres registrados</h3></div></div>
               <div id="report-rows"></div>
             </section>
           </div>
@@ -260,6 +301,7 @@
       <button class="mobile-nav-item" data-view="cierre" type="button"><i class="icon" data-lucide="plus" aria-hidden="true"></i><span>Cierre</span></button>
       <button class="mobile-nav-item" data-view="repartos" type="button"><i class="icon" data-lucide="bike" aria-hidden="true"></i><span>Repartos</span></button>
       <button class="mobile-nav-item" data-view="reportes" type="button"><i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i><span>Reportes</span></button>
+      <button class="mobile-nav-item" data-view="gastos" type="button"><i class="icon" data-lucide="wallet-cards" aria-hidden="true"></i><span>Gastos</span></button>
     </nav>
   </div>
 

@@ -1,10 +1,11 @@
-const CACHE_NAME = 'foodtruck-ventas-v1';
+const CACHE_NAME = 'foodtruck-ventas-v5';
 const APP_SHELL = [
   './',
   './index.html',
   './owner.css',
   './mobile-dashboard.css',
   './delivery-view.css',
+  './mascot-motion.css',
   './app.js',
   './manifest.json',
   './app-icon.svg'
