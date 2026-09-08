@@ -1,0 +1,2 @@
+cl.foodtruck.ventas:style/AppTheme = 0x7f020000
+cl.foodtruck.ventas:drawable/app_icon = 0x7f010000

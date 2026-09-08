@@ -1,0 +1,8 @@
+cl.foodtruck.ventas.app-pngs-0 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\generated\res\pngs\debug
+cl.foodtruck.ventas.app-resValues-1 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\generated\res\resValues\debug
+cl.foodtruck.ventas.app-updated_navigation_xml-2 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\generated\updated_navigation_xml\debug
+cl.foodtruck.ventas.app-packageDebugResources-3 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+cl.foodtruck.ventas.app-packageDebugResources-4 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+cl.foodtruck.ventas.app-debug-5 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\build\intermediates\merged_res\debug\mergeDebugResources
+cl.foodtruck.ventas.app-debug-6 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\debug\res
+cl.foodtruck.ventas.app-main-7 C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\res

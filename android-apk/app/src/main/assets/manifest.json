@@ -1,0 +1,24 @@
+{
+  "id": "./index.html",
+  "name": "Foodtruck Ventas",
+  "short_name": "Foodtruck Ventas",
+  "description": "Cierres diarios y reportes de ventas para foodtruck.",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "start_url": "./index.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f4f6f5",
+  "theme_color": "#111820",
+  "orientation": "any",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

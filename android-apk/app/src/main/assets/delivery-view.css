@@ -1,0 +1,36 @@
+.delivery-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.15fr); align-items: start; gap: 18px; }
+.delivery-form-card, .delivery-list-card { min-width: 0; }
+.delivery-list-card { align-self: start; }
+.delivery-form-card form { display: grid; gap: 16px; margin-top: 24px; }
+.delivery-form-card label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.delivery-form-card input { background: #f8faf9; }
+.delivery-form-card .save-button { margin-top: 2px; }
+.delivery-local { display: inline-flex; align-items: center; gap: 6px; color: #3f9368; font-size: 11px; font-weight: 800; }
+.delivery-local i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.delivery-totals { display: grid; justify-items: end; gap: 4px; }
+.delivery-totals strong { color: var(--cyan-deep); font: 800 27px/1 var(--font-heading); }
+.delivery-totals span { color: var(--muted); font-size: 12px; }
+.delivery-totals b { color: var(--ink); }
+.delivery-list-card .panel-head { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.delivery-row { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 15px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.delivery-row:last-child { border-bottom: 0; }
+.delivery-row b, .delivery-row small { display: block; }
+.delivery-row b { color: var(--ink); font: 700 13px var(--font-heading); }
+.delivery-row small { margin-top: 4px; color: var(--cyan-deep); font-size: 12px; font-weight: 800; }
+.remove-delivery { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger); }
+.remove-delivery:hover { background: #ffe3dd; }
+.remove-delivery .icon { width: 17px; height: 17px; }
+.empty-deliveries { display: flex; min-height: 82px; align-items: center; gap: 12px; padding: 18px 0; color: var(--muted); }
+.empty-deliveries .empty-mark { width: 38px; height: 38px; flex: 0 0 auto; }
+.empty-deliveries strong { display: block; color: var(--ink); font: 700 13px var(--font-heading); }
+.empty-deliveries p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 1000px) {
+  .delivery-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .delivery-layout { gap: 12px; }
+  .delivery-totals { justify-items: start; margin-top: 18px; }
+  .delivery-list-card .panel-head { align-items: flex-start; }
+  .delivery-row { min-height: 66px; padding: 10px 0; }
+}
