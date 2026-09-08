@@ -1,4 +1,4 @@
-const CACHE_NAME = 'foodtruck-ventas-v7';
+const CACHE_NAME = 'foodtruck-ventas-v8';
 const APP_SHELL = [
   './',
   './index.html',
@@ -8,7 +8,7 @@ const APP_SHELL = [
   './mascot-motion.css',
   './app.js',
   './manifest.json',
-  './app-icon.svg'
+  './app-icon.png'
 ];
 
 self.addEventListener('install', event => {

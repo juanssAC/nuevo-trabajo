@@ -1,4 +1,4 @@
-#Tue Sep 08 05:18:50 GMT-03:00 2026
+#Tue Sep 08 05:30:22 GMT-03:00 2026
 base.0=C\:\\Users\\Juanss\\OneDrive\\Desktop\\Trabajos visual Studio\\nuevo trabajo\\android-apk\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
 base.1=C\:\\Users\\Juanss\\OneDrive\\Desktop\\Trabajos visual Studio\\nuevo trabajo\\android-apk\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\5\\classes.dex
 path.0=0/classes.dex

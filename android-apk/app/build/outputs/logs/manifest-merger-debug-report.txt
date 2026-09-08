@@ -26,7 +26,7 @@ INJECTED from C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trab
 	android:label
 		ADDED from C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:7:9-41
 	android:icon
-		ADDED from C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:6:9-42
+		ADDED from C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:6:9-48
 	android:allowBackup
 		ADDED from C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:8:9-36
 	android:theme

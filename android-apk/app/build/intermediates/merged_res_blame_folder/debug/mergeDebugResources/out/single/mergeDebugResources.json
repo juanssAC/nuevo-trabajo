@@ -1,6 +1,10 @@
 [
     {
-        "merged": "cl.foodtruck.ventas.app-debug-4:/drawable_app_icon.xml.flat",
-        "source": "cl.foodtruck.ventas.app-main-6:/drawable/app_icon.xml"
+        "merged": "cl.foodtruck.ventas.app-debug-4:/drawable-nodpi_app_icon_image.png.flat",
+        "source": "cl.foodtruck.ventas.app-main-6:/drawable-nodpi/app_icon_image.png"
+    },
+    {
+        "merged": "C:\\Users\\Juanss\\.gradle\\daemon\\9.3.0\\cl.foodtruck.ventas.app-debug-4:\\drawable_app_icon.xml.flat",
+        "source": "C:\\Users\\Juanss\\.gradle\\daemon\\9.3.0\\cl.foodtruck.ventas.app-main-6:\\drawable\\app_icon.xml"
     }
 ]

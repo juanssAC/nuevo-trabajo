@@ -18,8 +18,8 @@
 14-->C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:8:9-36
 15        android:debuggable="true"
 16        android:extractNativeLibs="false"
-17        android:icon="@drawable/app_icon"
-17-->C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:6:9-42
+17        android:icon="@drawable/app_icon_image"
+17-->C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:6:9-48
 18        android:label="Foodtruck Ventas"
 18-->C:\Users\Juanss\OneDrive\Desktop\Trabajos visual Studio\nuevo trabajo\android-apk\app\src\main\AndroidManifest.xml:7:9-41
 19        android:supportsRtl="true"
