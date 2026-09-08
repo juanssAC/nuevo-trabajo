@@ -1,6 +1,6 @@
 const menu = {
   Pichangas: [{name:'Pichangas', price:7500},{name:'Pichangas', price:10500},{name:'Pichangas', price:11500},{name:'Pichangas', price:13500},{name:'Pichangas', price:19500}],
-  Completos: [{name:'Dinámico', price:2500},{name:'Italiano', price:2500},{name:'Especial palta', price:2800},{name:'Hass pollo o carne', price:4000},{name:'Hass Mixto', price:4000},{name:'Hass loco', price:4000}],
+  Completos: [{name:'Dinámico', price:2500},{name:'Italiano', price:2500},{name:'Especial palta', price:2800},{name:'Hass pollo o carne', price:4000},{name:'Hass Mixto', price:4000},{name:'Hass Luco', price:4000}],
   'Salchipollo o carne': [{name:'Salchipollo o carne', price:7000},{name:'Salchipollo o carne', price:9000},{name:'Salchipollo o carne', price:11000},{name:'Salchipollo o carne', price:13000}],
   Churrascos: [{name:'Italiano', price:6500},{name:'Barro Luco', price:5500},{name:'Tortuga', price:3500},{name:'Churrasco palta', price:6000},{name:'Brasileño', price:5500},{name:'Chacarero', price:7000},{name:'Churrasco solo', price:5000}],
   Salchipapas: [{name:'Salchipapas', price:3000},{name:'Salchipapas', price:4500},{name:'Salchipapas', price:6500},{name:'Salchipapas', price:8500}],
@@ -8,11 +8,17 @@ const menu = {
   'Papa sola': [{name:'Papa sola', price:2500},{name:'Papa sola', price:3500},{name:'Papa sola', price:4500},{name:'Papa sola', price:8500}],
   Salchiqueso: [{name:'Salchiqueso', price:6500},{name:'Salchiqueso', price:7500},{name:'Salchiqueso', price:8500},{name:'Salchiqueso', price:13500}],
   'Pichangas con camarón': [{name:'Pichangas con camarón', price:11500},{name:'Pichangas con camarón', price:13500},{name:'Pichangas con camarón', price:16500},{name:'Pichangas con camarón', price:21000}],
+  Bebidas: [{name:'Bebida lata 220cc', price:1000},{name:'Bebida 350cc', price:1500},{name:'Bebida 1,5', price:3000},{name:'Jugo 1,5', price:3000},{name:'Energizante', price:3000},{name:'Té/café', price:1000}],
   Pailas: [{name:'Paila · 2 huevos', price:2000},{name:'Paila · 3 huevos', price:3000},{name:'Paila · 4 huevos', price:3500},{name:'Paila · 2 huevos + 1 agregado', price:3500},{name:'Agregado · jamón o queso', price:0}]
 };
 
 const allProducts = Object.entries(menu).flatMap(([group, items]) => items.map((item, index) => ({...item, group, id:`${group}-${index}`})));
-const state = { quantities: {}, manualPrices: {}, drinks: 0, workerPayment: 0 };
+const workers = [
+  {id:'vannesa-perez', name:'Vannesa Perez', rut:'16436186-1'},
+  {id:'vanessa-gonzales', name:'Vanessa Gonzales', rut:'22746439-9'},
+  {id:'nelida-rojas-montoya', name:'Nelida Rojas Montoya', rut:'11506952-7'}
+];
+const state = { quantities: {}, manualPrices: {}, drinks: 0, workerPayment: 0, workerRecords: {} };
 const STORAGE_KEY = 'pichangas-daily-sales';
 const PENDING_DELIVERIES_KEY = 'pichangas-pending-deliveries';
 const EXPENSES_KEY = 'pichangas-business-expenses';
@@ -159,33 +165,43 @@ function currentTotals(){
   const deliveries = getPendingDeliveries();
   const deliveryTotal = deliveries.reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
   const drinks = Math.max(0, Number(state.drinks) || 0);
-  const workerPayment = Math.max(0, Number(state.workerPayment) || 0);
+  const workerPayment = workers.reduce((sum, worker) => sum + Math.max(0, Number(state.workerRecords[worker.id]?.payment) || 0), 0);
   const total = menuTotal + drinks + deliveryTotal;
-  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, workerPayment, total, netTotal: total - workerPayment };
+  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, workerPayment, workers: workers.map(worker => ({...worker, present:Boolean(state.workerRecords[worker.id]?.present), payment:Math.max(0, Number(state.workerRecords[worker.id]?.payment) || 0)})), total, netTotal: total - workerPayment };
 }
 
 function renderProducts(){
   const container = document.querySelector('#product-groups');
   if (!container) return;
-  container.innerHTML = Object.entries(menu).map(([group, items]) => `
-    <section class="product-group group-${slugify(group)}" data-group="${escapeHTML(group)}">
-      <h4>${escapeHTML(group)}<span>${items.length} opciones</span></h4>
-      ${items.map((item, index) => {
-        const id = `${group}-${index}`;
-        const inputId = `q-${slugify(id)}-${index}`;
-        const manualId = `price-${slugify(id)}-${index}`;
-        const isManual = item.price === 0;
-        return `
-          <div class="sale-product${isManual ? ' manual-product' : ''}">
-            <div class="product-copy">
-              <label for="${inputId}"><span class="product-name">${escapeHTML(item.name)}</span><small class="product-price">${item.price ? money(item.price) : 'Precio manual'}</small></label>
-              ${isManual ? `<label class="manual-price-field" for="${manualId}"><span>Precio unitario</span><input id="${manualId}" data-manual-price="${escapeHTML(id)}" type="number" min="1" step="100" value="${state.manualPrices[id] || ''}" placeholder="$ 0" inputmode="numeric" aria-describedby="manual-error-${slugify(id)}"><small class="field-error" id="manual-error-${slugify(id)}" data-manual-error="${escapeHTML(id)}" role="alert"></small></label>` : ''}
-            </div>
-            <label class="quantity-label" for="${inputId}"><span class="visually-hidden">Cantidad de ${escapeHTML(item.name)}</span><input class="quantity-input" id="${inputId}" data-quantity="${escapeHTML(id)}" type="number" min="0" max="30" step="1" value="${Math.min(30, state.quantities[id] || 0)}" inputmode="numeric"></label>
-            <strong class="product-subtotal" data-subtotal="${escapeHTML(id)}">${money((state.quantities[id] || 0) * (item.price || state.manualPrices[id] || 0))}</strong>
-          </div>`;
-      }).join('')}
-    </section>`).join('');
+  container.innerHTML = Object.entries(menu).map(([group, items]) => {
+    const groupId = slugify(group);
+    return `
+      <details class="product-group group-${groupId}" data-group="${escapeHTML(group)}" open>
+        <summary>
+          <span class="group-title">${escapeHTML(group)}</span>
+          <span class="group-count">${items.length} opciones</span>
+        </summary>
+        <div class="group-items">
+          ${items.map((item, index) => {
+            const id = `${group}-${index}`;
+            const inputId = `q-${slugify(id)}-${index}`;
+            const manualId = `price-${slugify(id)}-${index}`;
+            const isManual = item.price === 0;
+            const currentQuantity = Number(state.quantities[id]) || 0;
+            const quantityValue = currentQuantity > 0 ? currentQuantity : '';
+            return `
+              <div class="sale-product${isManual ? ' manual-product' : ''}">
+                <div class="product-copy">
+                  <label for="${inputId}"><span class="product-name">${escapeHTML(item.name)}</span><small class="product-price">${item.price ? money(item.price) : 'Precio manual'}</small></label>
+                  ${isManual ? `<label class="manual-price-field" for="${manualId}"><span>Precio unitario</span><input id="${manualId}" data-manual-price="${escapeHTML(id)}" type="number" min="1" step="100" value="${state.manualPrices[id] || ''}" placeholder="$ 0" inputmode="numeric" aria-describedby="manual-error-${slugify(id)}"><small class="field-error" id="manual-error-${slugify(id)}" data-manual-error="${escapeHTML(id)}" role="alert"></small></label>` : ''}
+                </div>
+                <label class="quantity-label" for="${inputId}"><span class="visually-hidden">Cantidad de ${escapeHTML(item.name)}</span><input class="quantity-input" id="${inputId}" data-quantity="${escapeHTML(id)}" type="number" min="0" max="30" step="1" value="${quantityValue}" inputmode="numeric" placeholder="0"></label>
+                <strong class="product-subtotal" data-subtotal="${escapeHTML(id)}">${money((state.quantities[id] || 0) * (item.price || state.manualPrices[id] || 0))}</strong>
+              </div>`;
+          }).join('')}
+        </div>
+      </details>`;
+  }).join('');
   renderManualPriceErrors();
   refreshIcons();
 }
@@ -229,11 +245,40 @@ function renderClosingSummary(){
   if (summary) summary.classList.toggle('is-complete', totals.total > 0);
 }
 
+function getWorkerStreak(workerId, throughDate = isoDate(today)){
+  const dates = new Set(getSales().filter(sale => sale.workers?.some(worker => worker.id === workerId && worker.present)).map(sale => sale.date));
+  let streak = 0;
+  const cursor = new Date(`${throughDate}T12:00:00`);
+  while (dates.has(isoDate(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderWorkers(){
+  const list = document.querySelector('#worker-list');
+  if (!list) return;
+  const count = workers.filter(worker => state.workerRecords[worker.id]?.present).length;
+  const countElement = document.querySelector('#worker-count');
+  if (countElement) countElement.textContent = `${count} ${count === 1 ? 'presente' : 'presentes'}`;
+  list.innerHTML = workers.map(worker => {
+    const record = state.workerRecords[worker.id] || {};
+    const streak = getWorkerStreak(worker.id);
+    return `<div class="worker-row${record.present ? ' is-present' : ''}">
+      <div class="worker-identity"><strong>${escapeHTML(worker.name)}</strong><small>RUT ${escapeHTML(worker.rut)}</small><span class="worker-streak" aria-label="${streak} ${streak === 1 ? 'día' : 'días'} seguidos">🔥 ${streak} ${streak === 1 ? 'día' : 'días'}</span></div>
+      <label class="worker-attendance"><input type="checkbox" data-worker-present="${worker.id}" ${record.present ? 'checked' : ''}><span>Vino</span></label>
+      <label class="worker-payment-field"><span>Paga</span><input type="number" min="0" step="100" inputmode="numeric" placeholder="$ 0" data-worker-payment="${worker.id}" value="${record.payment || ''}" ${record.present ? '' : 'disabled'}></label>
+    </div>`;
+  }).join('');
+}
+
 function resetClosing(){
   state.quantities = {};
   state.manualPrices = {};
   state.drinks = 0;
   state.workerPayment = 0;
+  state.workerRecords = {};
   const drinksInput = document.querySelector('#drinks-input');
   const workerPaymentInput = document.querySelector('#worker-payment-input');
   const noteInput = document.querySelector('#sale-note');
@@ -241,6 +286,7 @@ function resetClosing(){
   if (workerPaymentInput) workerPaymentInput.value = '';
   if (noteInput) noteInput.value = '';
   renderProducts();
+  renderWorkers();
   renderClosingSummary();
 }
 
@@ -629,8 +675,8 @@ function exportReport(){
   const sales = getSales().filter(sale => inPeriod(sale.date, activeReportPeriod));
   if (!sales.length) { toast(`No hay cierres en ${REPORT_PERIODS[activeReportPeriod].toLowerCase()}.`, 'info'); return; }
   const escapeCSV = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.workerPayment || 0, saleTotal(sale) - Number(sale.workerPayment || 0), sale.note || ''].map(escapeCSV).join(';'));
-  const csv = `Fecha;Productos;Menu;Bebidas;Repartos;Cantidad repartos;Total ventas;Pago trabajadores;Resultado neto;Nota\n${rows.join('\n')}`;
+  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.workerPayment || 0, saleTotal(sale) - Number(sale.workerPayment || 0), (sale.workers || []).map(worker => `${worker.name} (${worker.rut}) ${worker.present ? 'vino' : 'no vino'} ${money(worker.payment)}`).join(' | '), sale.note || ''].map(escapeCSV).join(';'));
+  const csv = `Fecha;Productos;Menu;Bebidas;Repartos;Cantidad repartos;Total ventas;Pago trabajadores;Resultado neto;Detalle trabajadores;Nota\n${rows.join('\n')}`;
   const blob = new Blob([`\ufeff${csv}`], {type:'text/csv;charset=utf-8;'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -701,6 +747,17 @@ function handleDocumentInput(event){
   }
   if (target.matches('#worker-payment-input')) {
     state.workerPayment = Math.max(0, Number(target.value) || 0);
+    renderClosingSummary();
+  }
+  if (target.matches('[data-worker-present]')) {
+    const id = target.dataset.workerPresent;
+    state.workerRecords[id] = {...state.workerRecords[id], present:target.checked};
+    renderWorkers();
+    renderClosingSummary();
+  }
+  if (target.matches('[data-worker-payment]')) {
+    const id = target.dataset.workerPayment;
+    state.workerRecords[id] = {...state.workerRecords[id], payment:Math.max(0, Number(target.value) || 0)};
     renderClosingSummary();
   }
   if (target.matches('#drinks-input')) {
@@ -843,6 +900,7 @@ function init(){
   toastElement.addEventListener('focusin', pauseToast);
   toastElement.addEventListener('focusout', resumeToast);
   renderProducts();
+  renderWorkers();
   renderPendingDeliveries();
   renderClosingSummary();
   updateDashboard();

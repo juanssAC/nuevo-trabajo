@@ -206,9 +206,9 @@
                 <div><p>Bebidas</p><small>Ingreso manual del total vendido</small></div>
                 <label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
               </div>
-              <div class="manual-section workers-section">
-                <div><p>Pago a trabajadores</p><small>Ingresa el total manual en pesos chilenos</small></div>
-                <label class="manual-field"><span>Total CLP</span><input type="number" id="worker-payment-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
+              <div class="workers-section">
+                <div class="workers-head"><div><p>Pago y asistencia</p><small>Marca quién vino y registra su paga del día.</small></div><strong id="worker-count">0 presentes</strong></div>
+                <div class="worker-list" id="worker-list"></div>
               </div>
               <div class="manual-delivery-section manual-section">
                 <div><p>Repartos registrados</p><small><b id="closing-delivery-count">0</b> entregas · se suma desde la lista</small></div>
