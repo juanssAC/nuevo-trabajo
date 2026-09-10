@@ -8,7 +8,8 @@ const menu = {
   'Papa sola': [{name:'Papa sola', price:2500},{name:'Papa sola', price:3500},{name:'Papa sola', price:4500},{name:'Papa sola', price:8500}],
   Salchiqueso: [{name:'Salchiqueso', price:6500},{name:'Salchiqueso', price:7500},{name:'Salchiqueso', price:8500},{name:'Salchiqueso', price:13500}],
   'Pichangas con camarón': [{name:'Pichangas con camarón', price:11500},{name:'Pichangas con camarón', price:13500},{name:'Pichangas con camarón', price:16500},{name:'Pichangas con camarón', price:21000}],
-  Bebidas: [{name:'Bebida lata 220cc', price:1000},{name:'Bebida 350cc', price:1500},{name:'Bebida 1,5', price:3000},{name:'Jugo 1,5', price:3000},{name:'Energizante', price:3000},{name:'Té/café', price:1000}],
+  Promos: [{name:'Completo + papas + bebida', price:5000},{name:'Completo + papas (sin bebida)', price:4000}],
+  Bebidas: [{name:'Bebida lata 220cc', price:1000},{name:'Bebida 350cc', price:1500},{name:'Bebida 1,5', price:3000},{name:'Jugo 1,5', price:3000},{name:'Energizante', price:3000},{name:'Té/café', price:1000},{name:'Agua con gas 1,5 lts', price:2000},{name:'Agua sin gas 1,5 lts', price:2000},{name:'Kapo', price:500},{name:'Bebidas express', price:1000}],
   Pailas: [{name:'Paila · 2 huevos', price:2000},{name:'Paila · 3 huevos', price:3000},{name:'Paila · 4 huevos', price:3500},{name:'Paila · 2 huevos + 1 agregado', price:3500},{name:'Agregado · jamón o queso', price:0}]
 };
 
@@ -22,8 +23,11 @@ const state = { quantities: {}, manualPrices: {}, drinks: 0, workerPayment: 0, w
 const STORAGE_KEY = 'pichangas-daily-sales';
 const PENDING_DELIVERIES_KEY = 'pichangas-pending-deliveries';
 const EXPENSES_KEY = 'pichangas-business-expenses';
-const VIEW_TITLES = { resumen:'Resumen del negocio', cierre:'Cierre diario', repartos:'Repartos del día', reportes:'Reportes generales', gastos:'Gastos del negocio' };
-const VIEW_ORDER = ['resumen', 'cierre', 'repartos', 'reportes', 'gastos'];
+const ORDERS_KEY = 'pichangas-order-list';
+const ACTIVE_SHIFT_DATE_KEY = 'pichangas-active-shift-date';
+const CLOSING_DRAFT_KEY = 'pichangas-closing-draft';
+const VIEW_TITLES = { resumen:'Resumen del negocio', cierre:'Cierre diario', repartos:'Repartos del día', lista:'Lista de pedidos', reportes:'Reportes generales', gastos:'Gastos del negocio' };
+const VIEW_ORDER = ['resumen', 'cierre', 'repartos', 'lista', 'reportes', 'gastos'];
 const REPORT_PERIODS = { week:'Esta semana', month:'Este mes', year:'Este año' };
 const WEEK_STATS_DAYS = 7;
 const DATE_LOCALE = 'es-CL';
@@ -36,6 +40,7 @@ let toastRemaining = 3500;
 let confirmResolver = null;
 let confirmTrigger = null;
 let deferredInstallPrompt = null;
+let orderDraftItems = [];
 
 const money = (value) => {
   const amount = Math.round(Number(value) || 0);
@@ -132,16 +137,216 @@ function saveExpenses(expenses){
   }
 }
 
+function isValidDateKey(value){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function getActiveShiftDate(){
+  try {
+    const stored = localStorage.getItem(ACTIVE_SHIFT_DATE_KEY);
+    return isValidDateKey(stored) ? stored : isoDate(new Date());
+  } catch {
+    announceStorageIssue();
+    return isoDate(new Date());
+  }
+}
+
+function saveActiveShiftDate(date){
+  if (!isValidDateKey(date)) return false;
+  try {
+    localStorage.setItem(ACTIVE_SHIFT_DATE_KEY, date);
+    return true;
+  } catch {
+    announceStorageIssue();
+    return false;
+  }
+}
+
+function saveClosingDraft(){
+  const date = document.querySelector('#sale-date')?.value || getActiveShiftDate();
+  const note = document.querySelector('#sale-note')?.value || '';
+  try {
+    localStorage.setItem(CLOSING_DRAFT_KEY, JSON.stringify({
+      date,
+      note,
+      quantities: state.quantities,
+      manualPrices: state.manualPrices,
+      drinks: state.drinks,
+      workerPayment: state.workerPayment,
+      workerRecords: state.workerRecords
+    }));
+    return true;
+  } catch {
+    announceStorageIssue();
+    return false;
+  }
+}
+
+function restoreClosingDraft(){
+  try {
+    const draft = JSON.parse(localStorage.getItem(CLOSING_DRAFT_KEY));
+    if (!draft || typeof draft !== 'object') return null;
+    if (isValidDateKey(draft.date)) saveActiveShiftDate(draft.date);
+    state.quantities = draft.quantities && typeof draft.quantities === 'object' ? draft.quantities : {};
+    state.manualPrices = draft.manualPrices && typeof draft.manualPrices === 'object' ? draft.manualPrices : {};
+    state.drinks = Math.max(0, Number(draft.drinks) || 0);
+    state.workerPayment = Math.max(0, Number(draft.workerPayment) || 0);
+    state.workerRecords = draft.workerRecords && typeof draft.workerRecords === 'object' ? draft.workerRecords : {};
+    return draft;
+  } catch {
+    announceStorageIssue();
+    return null;
+  }
+}
+
+function clearClosingDraft(){
+  try {
+    localStorage.removeItem(CLOSING_DRAFT_KEY);
+    return true;
+  } catch {
+    announceStorageIssue();
+    return false;
+  }
+}
+
+function updateShiftDateUI(date){
+  const currentDate = isoDate(new Date());
+  const label = document.querySelector('#shift-date-label');
+  const hint = document.querySelector('#sale-date-hint');
+  if (label) label.textContent = date === currentDate ? 'Turno activo · hoy' : `Turno activo · ${numericDate(date)}`;
+  if (hint) hint.textContent = date === currentDate ? 'El turno se mantiene hasta guardar el cierre.' : `Turno iniciado el ${numericDate(date)}. Se cambiará al guardar el cierre.`;
+}
+
+function getOrders(){
+  try {
+    const orders = JSON.parse(localStorage.getItem(ORDERS_KEY));
+    return Array.isArray(orders) ? orders : [];
+  } catch {
+    announceStorageIssue();
+    return [];
+  }
+}
+
+function saveOrders(orders){
+  try {
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+    return true;
+  } catch {
+    announceStorageIssue();
+    return false;
+  }
+}
+
+function orderDraftTotal(){
+  return orderDraftItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+
+function orderProductSummary(items){
+  return items.map(item => `${item.quantity}× ${item.name} (${money(item.price)})`).join(' + ');
+}
+
+function renderOrderDraft(){
+  const list = document.querySelector('#order-draft-list');
+  const total = orderDraftTotal();
+  const count = orderDraftItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalElement = document.querySelector('#order-draft-total');
+  const countElement = document.querySelector('#order-draft-count');
+  if (totalElement) totalElement.textContent = money(total);
+  if (countElement) countElement.textContent = `${count} ${count === 1 ? 'producto' : 'productos'} seleccionados`;
+  if (!list) return;
+  list.innerHTML = orderDraftItems.length ? orderDraftItems.map((item, index) => `<div class="order-draft-row"><div><strong>${escapeHTML(item.name)}</strong><small>${escapeHTML(item.group)} · ${item.quantity} × ${money(item.price)}</small></div><div class="order-draft-actions"><strong>${money(item.price * item.quantity)}</strong><button class="remove-delivery" data-remove-order-draft="${index}" type="button" aria-label="Quitar ${escapeHTML(item.name)} del pedido"><i class="icon" data-lucide="x"></i></button></div></div>`).join('') : `<div class="empty-order-draft"><span class="empty-mark"><i class="icon" data-lucide="shopping-basket"></i></span><div><strong>Arma el pedido aquí</strong><p>Agrega uno o varios productos antes de guardarlo.</p></div></div>`;
+  refreshIcons();
+}
+
+function updateOrderProductOptions(category = document.querySelector('#order-category')?.value || ''){
+  const select = document.querySelector('#order-product');
+  if (!select) return;
+  const products = menu[category] || [];
+  select.innerHTML = `<option value="">Selecciona una opción</option>${products.map((item, index) => {
+    const id = `${category}-${index}`;
+    const priceLabel = item.price > 0 ? money(item.price) : 'Precio manual';
+    return `<option value="${escapeHTML(id)}">${escapeHTML(item.name)} · ${priceLabel}</option>`;
+  }).join('')}`;
+  select.disabled = !products.length;
+  updateOrderManualPriceField();
+}
+
+function updateOrderManualPriceField(){
+  const select = document.querySelector('#order-product');
+  const field = document.querySelector('#order-manual-price-field');
+  const input = document.querySelector('#order-manual-price');
+  const product = allProducts.find(item => item.id === select?.value);
+  const isManual = product?.price === 0;
+  if (field) field.hidden = !isManual;
+  if (input) {
+    input.disabled = !isManual;
+    if (!isManual) input.value = '';
+  }
+}
+
+function resetOrderDraft(){
+  orderDraftItems = [];
+  document.querySelector('#order-form')?.reset();
+  updateOrderProductOptions('');
+  renderOrderDraft();
+}
+
+function addOrderDraftProduct(){
+  const category = document.querySelector('#order-category')?.value || '';
+  const productSelect = document.querySelector('#order-product');
+  const quantityInput = document.querySelector('#order-quantity');
+  const manualPriceInput = document.querySelector('#order-manual-price');
+  const product = allProducts.find(item => item.id === productSelect?.value);
+  const parsedQuantity = parseInt(quantityInput?.value, 10);
+  const quantity = Math.min(30, Math.max(0, Number.isFinite(parsedQuantity) ? parsedQuantity : 0));
+  const price = product?.price > 0 ? product.price : Math.max(0, Number(manualPriceInput?.value) || 0);
+  if (!category || !product) { toast('Selecciona una categoría y un producto.', 'error'); return; }
+  if (!quantity) { toast('Ingresa una cantidad mayor que 0.', 'error'); quantityInput?.focus(); return; }
+  if (!(price > 0)) { toast('Ingresa el precio unitario de este producto.', 'error'); manualPriceInput?.focus(); return; }
+  const existing = orderDraftItems.find(item => item.id === product.id && item.price === price);
+  if (existing) existing.quantity = Math.min(30, existing.quantity + quantity);
+  else orderDraftItems.push({id:product.id, group:product.group, name:product.name, price, quantity});
+  if (productSelect) productSelect.value = '';
+  if (quantityInput) quantityInput.value = '1';
+  if (manualPriceInput) manualPriceInput.value = '';
+  updateOrderManualPriceField();
+  renderOrderDraft();
+  toast(`${product.name} agregado al pedido.`, 'info');
+}
+
+function renderOrders(){
+  const orders = getOrders();
+  document.querySelectorAll('#order-count, #order-list-count').forEach(element => { element.textContent = orders.length; });
+  const list = document.querySelector('#order-list');
+  if (!list) return;
+  list.innerHTML = orders.length ? orders.map((order, index) => {
+    const items = Array.isArray(order.items) && order.items.length ? order.items : [{name:order.category || 'Pedido', group:order.category || '', price:Number(order.price) || 0, quantity:Number(order.quantity) || 1}];
+    const summary = orderProductSummary(items);
+    const phone = String(order.contact || '').match(/[+]?\d[\d\s-]{7,}/)?.[0]?.replace(/\D/g, '') || '';
+    const whatsappText = `Pedido Foodtruck\n${summary}\nDirección: ${order.address || ''}`;
+    const whatsapp = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappText)}` : '';
+    return `<div class="order-row"><div><strong>${escapeHTML(summary)}</strong><small>${escapeHTML(order.address || '')} · ${escapeHTML(order.contact || '')}</small></div><div class="order-actions">${whatsapp ? `<a class="whatsapp-button" href="${whatsapp}" target="_blank" rel="noopener"><i class="icon" data-lucide="message-circle"></i> WhatsApp</a>` : ''}<button class="remove-delivery" data-remove-order="${index}" type="button" aria-label="Eliminar pedido"><i class="icon" data-lucide="trash-2"></i></button></div></div>`;
+  }).join('') : `<div class="empty-deliveries"><span class="empty-mark"><i class="icon" data-lucide="clipboard-list"></i></span><div><strong>Lista vacía</strong><p>Agrega el primer pedido pendiente.</p></div></div>`;
+  refreshIcons();
+}
+
+function setupOrderForm(){
+  const category = document.querySelector('#order-category');
+  if (category && category.options.length === 1) category.insertAdjacentHTML('beforeend', Object.keys(menu).map(group => `<option value="${escapeHTML(group)}">${escapeHTML(group)}</option>`).join(''));
+  updateOrderProductOptions(category?.value || '');
+  renderOrderDraft();
+}
+
 function expensesTotal(expenses){
   return expenses.reduce((sum, expense) => sum + Math.max(0, Number(expense.amount) || 0), 0);
 }
 
 function inPeriod(date, period){
-  return date >= getPeriodStart(period) && date <= isoDate(new Date());
+  return date >= getPeriodStart(period) && date <= getActiveShiftDate();
 }
 
 function getPeriodStart(period){
-  const date = new Date();
+  const date = new Date(`${getActiveShiftDate()}T12:00:00`);
   if (period === 'week') {
     const day = date.getDay() || 7;
     date.setDate(date.getDate() - day + 1);
@@ -167,7 +372,7 @@ function currentTotals(){
   const drinks = Math.max(0, Number(state.drinks) || 0);
   const workerPayment = workers.reduce((sum, worker) => sum + Math.max(0, Number(state.workerRecords[worker.id]?.payment) || 0), 0);
   const total = menuTotal + drinks + deliveryTotal;
-  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, workerPayment, workers: workers.map(worker => ({...worker, present:Boolean(state.workerRecords[worker.id]?.present), payment:Math.max(0, Number(state.workerRecords[worker.id]?.payment) || 0)})), total, netTotal: total - workerPayment };
+  return { products, menuTotal, drinks, deliveries: deliveryTotal, deliveryCount: deliveries.length, workerPayment, workers: workers.map(worker => ({...worker, present:Boolean(state.workerRecords[worker.id]?.present), rest:Boolean(state.workerRecords[worker.id]?.rest), payment:Math.max(0, Number(state.workerRecords[worker.id]?.payment) || 0)})), total, netTotal: total - workerPayment };
 }
 
 function renderProducts(){
@@ -176,7 +381,7 @@ function renderProducts(){
   container.innerHTML = Object.entries(menu).map(([group, items]) => {
     const groupId = slugify(group);
     return `
-      <details class="product-group group-${groupId}" data-group="${escapeHTML(group)}" open>
+      <details class="product-group group-${groupId}" data-group="${escapeHTML(group)}">
         <summary>
           <span class="group-title">${escapeHTML(group)}</span>
           <span class="group-count">${items.length} opciones</span>
@@ -245,8 +450,10 @@ function renderClosingSummary(){
   if (summary) summary.classList.toggle('is-complete', totals.total > 0);
 }
 
-function getWorkerStreak(workerId, throughDate = isoDate(today)){
-  const dates = new Set(getSales().filter(sale => sale.workers?.some(worker => worker.id === workerId && worker.present)).map(sale => sale.date));
+function getWorkerStreak(workerId, throughDate = getActiveShiftDate()){
+  const dates = new Set(getSales().filter(sale => sale.workers?.some(worker => worker.id === workerId && (worker.present || worker.rest))).map(sale => sale.date));
+  const currentRecord = state.workerRecords[workerId];
+  if (throughDate === getActiveShiftDate() && (currentRecord?.present || currentRecord?.rest)) dates.add(throughDate);
   let streak = 0;
   const cursor = new Date(`${throughDate}T12:00:00`);
   while (dates.has(isoDate(cursor))) {
@@ -265,15 +472,18 @@ function renderWorkers(){
   list.innerHTML = workers.map(worker => {
     const record = state.workerRecords[worker.id] || {};
     const streak = getWorkerStreak(worker.id);
-    return `<div class="worker-row${record.present ? ' is-present' : ''}">
+    return `<div class="worker-row${record.present ? ' is-present' : ''}${record.rest ? ' is-rest' : ''}">
       <div class="worker-identity"><strong>${escapeHTML(worker.name)}</strong><small>RUT ${escapeHTML(worker.rut)}</small><span class="worker-streak" aria-label="${streak} ${streak === 1 ? 'día' : 'días'} seguidos">🔥 ${streak} ${streak === 1 ? 'día' : 'días'}</span></div>
-      <label class="worker-attendance"><input type="checkbox" data-worker-present="${worker.id}" ${record.present ? 'checked' : ''}><span>Vino</span></label>
+      <div class="worker-toggles">
+        <label class="worker-attendance"><input type="checkbox" data-worker-present="${worker.id}" ${record.present ? 'checked' : ''}><span>Vino</span></label>
+        <label class="worker-rest"><input type="checkbox" data-worker-rest="${worker.id}" ${record.rest ? 'checked' : ''}><span>Descanso</span></label>
+      </div>
       <label class="worker-payment-field"><span>Paga</span><input type="number" min="0" step="100" inputmode="numeric" placeholder="$ 0" data-worker-payment="${worker.id}" value="${record.payment || ''}" ${record.present ? '' : 'disabled'}></label>
     </div>`;
   }).join('');
 }
 
-function resetClosing(){
+function resetClosing({persist = true} = {}){
   state.quantities = {};
   state.manualPrices = {};
   state.drinks = 0;
@@ -288,6 +498,7 @@ function resetClosing(){
   renderProducts();
   renderWorkers();
   renderClosingSummary();
+  if (persist) saveClosingDraft();
 }
 
 function renderPendingDeliveries(){
@@ -315,7 +526,7 @@ function renderPendingDeliveries(){
 function renderDashboardDelivery(){
   const container = document.querySelector('#dashboard-delivery');
   if (!container) return;
-  const sale = getSales().find(item => item.date === isoDate(today));
+  const sale = getSales().find(item => item.date === getActiveShiftDate());
   const count = Number(sale?.deliveryCount || 0);
   const total = Number(sale?.deliveries || 0);
   if (!count) {
@@ -326,8 +537,9 @@ function renderDashboardDelivery(){
 }
 
 function buildWeekStats(sales){
+  const shiftDate = getActiveShiftDate();
   return Array.from({length:WEEK_STATS_DAYS}, (_, index) => {
-    const date = new Date(today);
+    const date = new Date(`${shiftDate}T12:00:00`);
     date.setDate(date.getDate() - (WEEK_STATS_DAYS - 1 - index));
     const key = isoDate(date);
     const sale = sales.find(item => item.date === key);
@@ -337,7 +549,7 @@ function buildWeekStats(sales){
       shortLabel: date.toLocaleDateString(DATE_LOCALE, {day:'2-digit', month:'short'}).replace('.', ''),
       value: sale ? saleTotal(sale) : 0,
       hasRecord: Boolean(sale),
-      isToday: key === isoDate(today)
+      isToday: key === shiftDate
     };
   });
 }
@@ -457,7 +669,8 @@ function renderActivity(sales){
 
 function updateDashboard(){
   const sales = getSales();
-  const todaySale = sales.find(sale => sale.date === isoDate(today));
+  const shiftDate = getActiveShiftDate();
+  const todaySale = sales.find(sale => sale.date === shiftDate);
   const week = sales.filter(sale => inPeriod(sale.date, 'week'));
   const month = sales.filter(sale => inPeriod(sale.date, 'month'));
   const todayTotal = todaySale ? saleTotal(todaySale) : 0;
@@ -485,7 +698,7 @@ function updateDashboard(){
 function renderDashboardExpenses(){
   const container = document.querySelector('#dashboard-expenses');
   if (!container) return;
-  const expenses = getExpenses().filter(expense => expense.date === isoDate(today));
+  const expenses = getExpenses().filter(expense => expense.date === getActiveShiftDate());
   const total = expensesTotal(expenses);
   container.innerHTML = expenses.length
     ? `<div class="dashboard-expense-row"><div class="delivery-label"><i class="icon" data-lucide="trending-down" aria-hidden="true"></i><div><strong>−${money(total)}</strong><small>${expenses.length} compras registradas hoy.</small></div></div><button class="inline-action" data-view-link="gastos" type="button">Ver gastos <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`
@@ -510,6 +723,8 @@ function renderReport(period = activeReportPeriod){
   const sales = getSales().filter(sale => inPeriod(sale.date, period)).sort((a, b) => b.date.localeCompare(a.date));
   const total = sales.reduce((sum, sale) => sum + saleTotal(sale), 0);
   const products = sales.reduce((sum, sale) => sum + Number(sale.products || 0), 0);
+  const deliveryRevenue = sales.reduce((sum, sale) => sum + Number(sale.deliveries || 0), 0);
+  const deliveryCount = sales.reduce((sum, sale) => sum + Number(sale.deliveryCount || 0), 0);
   const payments = sales.reduce((sum, sale) => sum + Number(sale.workerPayment || 0), 0);
   const expenses = getExpenses().filter(expense => inPeriod(expense.date, period));
   const expenseAmount = expensesTotal(expenses);
@@ -517,13 +732,15 @@ function renderReport(period = activeReportPeriod){
     '#report-total': money(total),
     '#report-days': `${sales.length} días registrados`,
     '#report-products': products,
+    '#report-deliveries': money(deliveryRevenue),
+    '#report-delivery-count': `${deliveryCount} ${deliveryCount === 1 ? 'entrega' : 'entregas'}`,
     '#report-net': money(total - payments - expenseAmount),
     '#report-payments': `Pagos: ${money(payments)} · Gastos: ${money(expenseAmount)}`
   };
   Object.entries(values).forEach(([selector, value]) => { const element = document.querySelector(selector); if (element) element.textContent = value; });
   const rows = document.querySelector('#report-rows');
   if (!rows) return;
-  rows.innerHTML = sales.length || expenses.length ? [...sales.map(sale => `<div class="report-row"><div class="report-date"><strong>${prettyDate(sale.date)}</strong><small>Cierre · ${sale.products || 0} productos</small></div><div class="report-breakdown"><span>Ventas ${money(saleTotal(sale))}</span><span>Trabajadores ${money(sale.workerPayment)}</span></div><strong class="report-total-value">${money(saleTotal(sale) - Number(sale.workerPayment || 0))}</strong></div>`), ...expenses.map(expense => `<div class="report-row expense-report-row"><div class="report-date"><strong>${prettyDate(expense.date)}</strong><small>Gasto · ${escapeHTML(expense.name)}</small></div><div class="report-breakdown"><span class="negative-value">−${money(expense.amount)}</span></div><strong class="report-total-value negative-value">−${money(expense.amount)}</strong></div>`)].join('') : `<div class="report-empty"><span class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></span><div><strong>No hay movimientos en ${REPORT_PERIODS[period].toLowerCase()}.</strong><p>Registra un cierre o un gasto para empezar a ver el rendimiento.</p></div><button class="inline-action" data-view-link="cierre" type="button">Registrar cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
+  rows.innerHTML = sales.length || expenses.length ? [...sales.map(sale => `<div class="report-row"><div class="report-date"><strong>${prettyDate(sale.date)}</strong><small>Cierre · ${sale.products || 0} productos</small></div><div class="report-breakdown"><span>Ventas ${money(saleTotal(sale))}</span><span>Repartos ${money(sale.deliveries)}</span><span>Trabajadores ${money(sale.workerPayment)}</span></div><strong class="report-total-value">${money(saleTotal(sale) - Number(sale.workerPayment || 0))}</strong></div>`), ...expenses.map(expense => `<div class="report-row expense-report-row"><div class="report-date"><strong>${prettyDate(expense.date)}</strong><small>Gasto · ${escapeHTML(expense.name)}</small></div><div class="report-breakdown"><span class="negative-value">−${money(expense.amount)}</span></div><strong class="report-total-value negative-value">−${money(expense.amount)}</strong></div>`)].join('') : `<div class="report-empty"><span class="empty-mark"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i></span><div><strong>No hay movimientos en ${REPORT_PERIODS[period].toLowerCase()}.</strong><p>Registra un cierre o un gasto para empezar a ver el rendimiento.</p></div><button class="inline-action" data-view-link="cierre" type="button">Registrar cierre <i class="icon" data-lucide="arrow-right" aria-hidden="true"></i></button></div>`;
   renderReportChart(sales, period);
   refreshIcons();
 }
@@ -567,6 +784,7 @@ function switchView(view){
   if (view === 'resumen') updateDashboard();
   if (view === 'cierre') renderClosingSummary();
   if (view === 'repartos') renderPendingDeliveries();
+  if (view === 'lista') renderOrders();
   if (view === 'reportes') renderReport(activeReportPeriod);
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -579,6 +797,18 @@ function hideToast(){
 }
 
 function toast(message, tone = 'success'){
+  if (window.Swal?.fire) {
+    window.Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: tone === 'error' ? 'error' : tone === 'info' ? 'info' : 'success',
+      title: message,
+      showConfirmButton: false,
+      timer: 3000,
+      timerProgressBar: true
+    });
+    return;
+  }
   const element = document.querySelector('#toast');
   const messageElement = document.querySelector('#toast-message');
   if (!element || !messageElement) return;
@@ -606,6 +836,17 @@ function resumeToast(){
 }
 
 function askConfirmation({title, message, confirmLabel = 'Confirmar', trigger = null}){
+  if (window.Swal?.fire) {
+    return window.Swal.fire({
+      title,
+      text: message,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: confirmLabel,
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true
+    }).then(result => result.isConfirmed);
+  }
   const dialog = document.querySelector('#confirm-dialog');
   if (!dialog?.showModal) return Promise.resolve(window.confirm(`${title}\n\n${message}`));
   document.querySelector('#confirm-title').textContent = title;
@@ -646,10 +887,11 @@ function validateDeliveryForm(){
 
 async function saveSale(){
   const dateInput = document.querySelector('#sale-date');
-  const date = dateInput.value;
+  const date = dateInput.value || getActiveShiftDate();
   if (!date) { toast('Selecciona una fecha.', 'error'); dateInput.focus(); return; }
   const missingManual = [...document.querySelectorAll('[data-manual-error].is-visible')];
   if (missingManual.length) { toast('Completa los precios manuales antes de guardar.', 'error'); missingManual[0].parentElement.querySelector('[data-manual-price]')?.focus(); return; }
+  const pendingDeliveries = getPendingDeliveries();
   const totals = currentTotals();
   if (!totals.products && !totals.drinks && !totals.deliveries) { toast('Ingresa al menos una venta.', 'error'); return; }
   const sales = getSales();
@@ -657,30 +899,48 @@ async function saveSale(){
   const confirmed = existing ? await askConfirmation({title:'¿Reemplazar el cierre?', message:'Ya existe un cierre para esta fecha. Si continúas, se reemplazará con los datos actuales.', confirmLabel:'Reemplazar', trigger:document.querySelector('#save-sale')}) : true;
   if (!confirmed) return;
   const nextSales = sales.filter(sale => sale.date !== date);
-  nextSales.push({...totals, date, note:document.querySelector('#sale-note').value.trim(), manualPrices:{...state.manualPrices}});
+  nextSales.push({
+    ...totals,
+    date,
+    note:document.querySelector('#sale-note').value.trim(),
+    manualPrices:{...state.manualPrices},
+    deliveryItems:pendingDeliveries.map(item => ({name:item.name, amount:Number(item.amount) || 0})),
+    shiftClosedAt:new Date().toISOString()
+  });
   if (!saveSales(nextSales)) return;
   if (!savePendingDeliveries([])) {
     saveSales(sales);
     toast('No se pudo completar el guardado. Tus datos anteriores fueron restaurados.', 'error');
     return;
   }
-  resetClosing();
+  clearClosingDraft();
+  const nextShiftDate = isoDate(new Date());
+  saveActiveShiftDate(nextShiftDate);
+  resetClosing({persist:false});
+  if (dateInput) {
+    dateInput.max = nextShiftDate;
+    dateInput.value = nextShiftDate;
+  }
+  updateShiftDateUI(nextShiftDate);
   renderPendingDeliveries();
   updateDashboard();
-  toast(existing ? 'Cierre actualizado.' : 'Cierre guardado y repartos reiniciados.');
+  renderReport(activeReportPeriod);
+  toast(existing ? 'Cierre actualizado.' : 'Cierre guardado y repartos archivados en Reportes.');
   switchView('resumen');
 }
 
 function exportReport(){
   const sales = getSales().filter(sale => inPeriod(sale.date, activeReportPeriod));
   if (!sales.length) { toast(`No hay cierres en ${REPORT_PERIODS[activeReportPeriod].toLowerCase()}.`, 'info'); return; }
-  const escapeCSV = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.workerPayment || 0, saleTotal(sale) - Number(sale.workerPayment || 0), (sale.workers || []).map(worker => `${worker.name} (${worker.rut}) ${worker.present ? 'vino' : 'no vino'} ${money(worker.payment)}`).join(' | '), sale.note || ''].map(escapeCSV).join(';'));
-  const csv = `Fecha;Productos;Menu;Bebidas;Repartos;Cantidad repartos;Total ventas;Pago trabajadores;Resultado neto;Detalle trabajadores;Nota\n${rows.join('\n')}`;
-  const blob = new Blob([`\ufeff${csv}`], {type:'text/csv;charset=utf-8;'});
+  const escapeXML = value => String(value ?? '').replace(/[<>&'"]/g, character => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[character]));
+  const headers = ['Fecha','Productos','Menu','Bebidas','Repartos','Cantidad repartos','Total ventas','Pago trabajadores','Resultado neto','Detalle trabajadores','Nota'];
+  const rows = sales.map(sale => [sale.date, sale.products || 0, sale.menuTotal || 0, sale.drinks || 0, sale.deliveries || 0, sale.deliveryCount || 0, saleTotal(sale), sale.workerPayment || 0, saleTotal(sale) - Number(sale.workerPayment || 0), (sale.workers || []).map(worker => `${worker.name} (${worker.rut}) ${worker.present ? 'vino' : worker.rest ? 'descanso' : 'no vino'} ${money(worker.payment)}`).join(' | '), sale.note || '']);
+  const xmlRows = [headers, ...rows].map((row, rowIndex) => `<Row>${row.map(value => `<Cell${rowIndex === 0 ? ' ss:StyleID="Header"' : ''}><Data ss:Type="${typeof value === 'number' ? 'Number' : 'String'}">${escapeXML(value)}</Data></Cell>`).join('')}</Row>`).join('');
+  const workbook = `<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#287E80" ss:Pattern="Solid"/></Style></Styles><Worksheet ss:Name="Cierres"><Table>${xmlRows}</Table></Worksheet></Workbook>`;
+  const blob = new Blob([workbook], {type:'application/vnd.ms-excel'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `reporte-${activeReportPeriod}.csv`;
+  link.download = `reporte-${activeReportPeriod}.xls`;
   link.click();
   URL.revokeObjectURL(link.href);
   toast(`Resumen de ${REPORT_PERIODS[activeReportPeriod].toLowerCase()} descargado.`);
@@ -701,6 +961,23 @@ function handleDocumentClick(event){
     renderPendingDeliveries();
     renderClosingSummary();
     toast('Reparto eliminado.', 'info');
+    return;
+  }
+  if (event.target.closest('#add-order-product')) {
+    addOrderDraftProduct();
+    return;
+  }
+  const removeOrderDraft = event.target.closest('[data-remove-order-draft]');
+  if (removeOrderDraft) {
+    orderDraftItems.splice(Number(removeOrderDraft.dataset.removeOrderDraft), 1);
+    renderOrderDraft();
+    return;
+  }
+  const removeOrder = event.target.closest('[data-remove-order]');
+  if (removeOrder) {
+    const orders = getOrders();
+    orders.splice(Number(removeOrder.dataset.removeOrder), 1);
+    if (saveOrders(orders)) { renderOrders(); toast('Pedido eliminado.', 'info'); }
     return;
   }
   if (event.target.closest('#reset-quantities')) {
@@ -728,12 +1005,19 @@ function handleDocumentClick(event){
     askConfirmation({title:'¿Vaciar los gastos?', message:'Se eliminará todo el historial de gastos.', confirmLabel:'Vaciar gastos', trigger:event.target.closest('#clear-expenses')}).then(confirmed => { if (confirmed && saveExpenses([])) { renderExpenses(); updateDashboard(); toast('Gastos eliminados.', 'info'); } });
     return;
   }
+  if (event.target.closest('#clear-orders')) {
+    if (!getOrders().length) { toast('La lista ya está vacía.', 'info'); return; }
+    askConfirmation({title:'¿Vaciar la lista?', message:'Se eliminarán todos los pedidos pendientes.', confirmLabel:'Vaciar lista'}).then(confirmed => { if (confirmed && saveOrders([])) { renderOrders(); toast('Lista vaciada.', 'info'); } });
+    return;
+  }
   if (event.target.closest('#export-report')) { exportReport(); return; }
   if (event.target.closest('#toast-close')) hideToast();
 }
 
 function handleDocumentInput(event){
   const target = event.target;
+  if (target.matches('#order-category')) updateOrderProductOptions(target.value);
+  if (target.matches('#order-product')) updateOrderManualPriceField();
   if (target.matches('[data-quantity]')) {
     const quantity = Math.min(30, Math.max(0, parseInt(target.value, 10) || 0));
     target.value = quantity;
@@ -751,7 +1035,13 @@ function handleDocumentInput(event){
   }
   if (target.matches('[data-worker-present]')) {
     const id = target.dataset.workerPresent;
-    state.workerRecords[id] = {...state.workerRecords[id], present:target.checked};
+    state.workerRecords[id] = {...state.workerRecords[id], present:target.checked, rest:false};
+    renderWorkers();
+    renderClosingSummary();
+  }
+  if (target.matches('[data-worker-rest]')) {
+    const id = target.dataset.workerRest;
+    state.workerRecords[id] = {...state.workerRecords[id], rest:target.checked, present:false, payment:target.checked ? 0 : state.workerRecords[id]?.payment};
     renderWorkers();
     renderClosingSummary();
   }
@@ -764,6 +1054,14 @@ function handleDocumentInput(event){
     state.drinks = Math.max(0, Number(target.value) || 0);
     renderClosingSummary();
   }
+  if (target.matches('#sale-date')) {
+    const date = target.value;
+    if (isValidDateKey(date)) {
+      saveActiveShiftDate(date);
+      updateShiftDateUI(date);
+    }
+  }
+  if (target.closest('#view-cierre')) saveClosingDraft();
 }
 
 function setupSwipeNavigation(){
@@ -843,12 +1141,26 @@ function init(){
   const splash = document.querySelector('#app-splash');
   window.setTimeout(() => splash?.classList.add('is-hidden'), 950);
   setupPWA();
+  if (window.AOS?.init) {
+    document.querySelectorAll('.page-content > *, .panel, .flat-section, .command-hero, .product-group').forEach((element, index) => {
+      element.dataset.aos = 'fade-up';
+      element.dataset.aosDelay = String(Math.min(index * 35, 240));
+    });
+    window.AOS.init({duration: 520, easing: 'ease-out-cubic', once: true, offset: 18});
+  }
+  const draft = restoreClosingDraft();
   const saleDate = document.querySelector('#sale-date');
-  saleDate.max = isoDate(today);
-  saleDate.value = isoDate(today);
-  document.querySelector('#sale-date-hint').textContent = `Hoy: ${numericDate(isoDate(today))} · formato local`;
+  const shiftDate = getActiveShiftDate();
+  saleDate.max = isoDate(new Date());
+  saleDate.value = shiftDate;
+  updateShiftDateUI(shiftDate);
+  const drinksInput = document.querySelector('#drinks-input');
+  const noteInput = document.querySelector('#sale-note');
+  if (drinksInput) drinksInput.value = state.drinks || '';
+  if (noteInput) noteInput.value = draft?.note || '';
   document.addEventListener('click', handleDocumentClick);
   document.addEventListener('input', handleDocumentInput);
+  document.addEventListener('change', handleDocumentInput);
   document.addEventListener('keydown', handleTabKeydown);
   setupSwipeNavigation();
   document.querySelector('#delivery-form').addEventListener('submit', event => {
@@ -874,12 +1186,31 @@ function init(){
     if (!name.value.trim()) { nameError.textContent = 'Escribe qué compraste.'; name.focus(); return; }
     if (!(Number(amount.value) > 0)) { amountError.textContent = 'Ingresa un monto mayor que $0.'; amount.focus(); return; }
     const expenses = getExpenses();
-    expenses.push({name:name.value.trim(), amount:Number(amount.value), date:isoDate(today)});
+    expenses.push({name:name.value.trim(), amount:Number(amount.value), date:getActiveShiftDate()});
     if (!saveExpenses(expenses)) return;
     event.currentTarget.reset();
     renderExpenses();
     updateDashboard();
     toast('Gasto guardado como plata negativa.');
+  });
+  document.querySelector('#order-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const address = document.querySelector('#order-address');
+    const contact = document.querySelector('#order-contact');
+    if (!orderDraftItems.length) { toast('Agrega al menos un producto al pedido.', 'error'); return; }
+    if (!address.value.trim() || !contact.value.trim()) { toast('Completa dirección y contacto.', 'error'); return; }
+    const orders = getOrders();
+    orders.push({
+      items: orderDraftItems.map(item => ({...item})),
+      total: orderDraftTotal(),
+      address: address.value.trim(),
+      contact: contact.value.trim(),
+      createdAt: new Date().toISOString()
+    });
+    if (!saveOrders(orders)) return;
+    resetOrderDraft();
+    renderOrders();
+    toast('Pedido agregado a la lista.');
   });
   const dialog = document.querySelector('#confirm-dialog');
   dialog.addEventListener('close', () => {
@@ -902,6 +1233,8 @@ function init(){
   renderProducts();
   renderWorkers();
   renderPendingDeliveries();
+  setupOrderForm();
+  renderOrders();
   renderClosingSummary();
   updateDashboard();
   renderReport();

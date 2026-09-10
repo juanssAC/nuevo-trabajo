@@ -11,11 +11,11 @@
   <link rel="icon" href="app-icon.png" type="image/png">
   <link rel="apple-touch-icon" href="app-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="owner.css?v=6">
+  <link rel="stylesheet" href="owner.css?v=7">
   <link rel="stylesheet" href="mobile-dashboard.css">
   <link rel="stylesheet" href="delivery-view.css">
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <script src="app.js?v=5" defer></script>
+  <script src="app.js?v=6" defer></script>
 </head>
 <body>
   <div class="app-splash" id="app-splash" aria-label="Cargando Foodtruck Ventas">
@@ -206,9 +206,9 @@
                 <div><p>Bebidas</p><small>Ingreso manual del total vendido</small></div>
                 <label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
               </div>
-              <div class="manual-section workers-section">
-                <div><p>Pago a trabajadores</p><small>Ingresa el total manual en pesos chilenos</small></div>
-                <label class="manual-field"><span>Total CLP</span><input type="number" id="worker-payment-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
+              <div class="workers-section">
+                <div class="workers-head"><div><p>Pago y asistencia</p><small>Marca quién vino o si tuvo descanso; el descanso mantiene la racha.</small></div><strong id="worker-count">0 presentes</strong></div>
+                <div class="worker-list" id="worker-list"></div>
               </div>
               <div class="manual-delivery-section manual-section">
                 <div><p>Repartos registrados</p><small><b id="closing-delivery-count">0</b> entregas · se suma desde la lista</small></div>

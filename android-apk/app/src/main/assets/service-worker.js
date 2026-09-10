@@ -1,4 +1,4 @@
-const CACHE_NAME = 'foodtruck-ventas-v8';
+const CACHE_NAME = 'foodtruck-ventas-v12';
 const APP_SHELL = [
   './',
   './index.html',

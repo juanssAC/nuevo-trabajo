@@ -3,7 +3,9 @@
 .delivery-list-card { align-self: start; }
 .delivery-form-card form { display: grid; gap: 16px; margin-top: 24px; }
 .delivery-form-card label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 700; }
-.delivery-form-card input { background: #f8faf9; }
+.delivery-form-card input, .delivery-form-card select { width: 100%; min-height: var(--control-height); padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #f8faf9; color: var(--ink); outline: 0; font-size: 13px; }
+.delivery-form-card input:focus, .delivery-form-card select:focus { border-color: var(--cyan-deep); box-shadow: 0 0 0 3px rgba(40, 126, 128, .14); }
+.delivery-form-card select:disabled { cursor: not-allowed; opacity: .62; }
 .delivery-form-card .save-button { margin-top: 2px; }
 .delivery-local { display: inline-flex; align-items: center; gap: 6px; color: #3f9368; font-size: 11px; font-weight: 800; }
 .delivery-local i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
@@ -24,6 +26,29 @@
 .empty-deliveries .empty-mark { width: 38px; height: 38px; flex: 0 0 auto; }
 .empty-deliveries strong { display: block; color: var(--ink); font: 700 13px var(--font-heading); }
 .empty-deliveries p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.order-product-picker { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.65fr) 82px auto; align-items: end; gap: 12px; }
+.order-product-picker label { min-width: 0; }
+.order-product-picker .order-quantity-field input { text-align: center; }
+.order-manual-price-field[hidden] { display: none; }
+.order-add-product { min-height: var(--control-height); align-self: end; padding: 0 13px; border: 1px solid var(--line); background: var(--surface); color: var(--cyan-deep); white-space: nowrap; }
+.order-add-product:hover { border-color: var(--cyan-deep); background: #f2fbfb; }
+.order-draft { margin-top: 2px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #f8faf9; }
+.order-draft-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.order-draft-head > strong:last-child { color: var(--cyan-deep); font: 800 19px/1 var(--font-heading); }
+.order-draft-head #order-draft-count { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+.order-draft-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.order-draft-row:last-child { border-bottom: 0; }
+.order-draft-row strong, .order-draft-row small { display: block; }
+.order-draft-row strong { color: var(--ink); font: 700 12px/1.35 var(--font-heading); }
+.order-draft-row small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.order-draft-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.order-draft-actions > strong { color: var(--cyan-deep); white-space: nowrap; }
+.order-draft-actions .remove-delivery { width: 32px; height: 32px; }
+.empty-order-draft { display: flex; min-height: 62px; align-items: center; gap: 10px; padding-top: 10px; color: var(--muted); }
+.empty-order-draft .empty-mark { width: 32px; height: 32px; }
+.empty-order-draft .empty-mark .icon { width: 17px; height: 17px; }
+.empty-order-draft strong { color: var(--ink); font: 700 12px var(--font-heading); }
+.empty-order-draft p { margin: 3px 0 0; font-size: 11px; }
 
 @media (max-width: 1000px) {
   .delivery-layout { grid-template-columns: 1fr; }
@@ -33,4 +58,11 @@
   .delivery-totals { justify-items: start; margin-top: 18px; }
   .delivery-list-card .panel-head { align-items: flex-start; }
   .delivery-row { min-height: 66px; padding: 10px 0; }
+  .order-product-picker { grid-template-columns: minmax(0, 1fr) auto; gap: 12px 10px; }
+  .order-product-picker label:nth-child(1), .order-product-picker label:nth-child(2), .order-manual-price-field { grid-column: 1 / -1; }
+  .order-product-picker .order-quantity-field { grid-column: 1; max-width: 100px; }
+  .order-add-product { grid-column: 2; }
+  .order-draft { padding: 12px; }
+  .order-draft-row { align-items: flex-start; }
+  .order-draft-actions { flex-direction: column; align-items: flex-end; }
 }

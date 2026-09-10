@@ -11,11 +11,15 @@
   <link rel="icon" href="app-icon.png" type="image/png">
   <link rel="apple-touch-icon" href="app-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="owner.css?v=6">
+  <link rel="stylesheet" href="owner.css?v=8">
   <link rel="stylesheet" href="mobile-dashboard.css">
   <link rel="stylesheet" href="delivery-view.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <script src="app.js?v=5" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js" defer></script>
+  <script src="app.js?v=7" defer></script>
 </head>
 <body>
   <div class="app-splash" id="app-splash" aria-label="Cargando Foodtruck Ventas">
@@ -42,6 +46,11 @@
           <i class="icon" data-lucide="bike" aria-hidden="true"></i>
           <span>Repartos</span>
           <b class="pending-count" id="pending-count">0</b>
+        </button>
+        <button class="nav-link" data-view="lista" type="button">
+          <i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i>
+          <span>Lista</span>
+          <b class="pending-count" id="order-count">0</b>
         </button>
         <button class="nav-link" data-view="reportes" type="button">
           <i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i>
@@ -175,9 +184,9 @@
               <p class="muted">Ingresa cuántas unidades vendiste. Los subtotales y el total se calculan solos.</p>
             </div>
             <label class="date-input" for="sale-date">
-              <span>Fecha del cierre <b class="today-indicator"><i></i> Hoy</b></span>
+              <span>Fecha del cierre <b class="today-indicator"><i></i> <span id="shift-date-label">Turno activo</span></b></span>
               <input type="date" id="sale-date" lang="es-CL" inputmode="none" aria-describedby="sale-date-hint">
-              <small id="sale-date-hint">Elige el día del cierre.</small>
+              <small id="sale-date-hint">El turno se mantiene hasta guardar el cierre.</small>
             </label>
           </div>
 
@@ -207,7 +216,7 @@
                 <label class="manual-field"><span>Total</span><input type="number" id="drinks-input" min="0" step="100" placeholder="$ 0" inputmode="numeric"></label>
               </div>
               <div class="workers-section">
-                <div class="workers-head"><div><p>Pago y asistencia</p><small>Marca quién vino y registra su paga del día.</small></div><strong id="worker-count">0 presentes</strong></div>
+                <div class="workers-head"><div><p>Pago y asistencia</p><small>Marca quién vino o si tuvo descanso; el descanso mantiene la racha.</small></div><strong id="worker-count">0 presentes</strong></div>
                 <div class="worker-list" id="worker-list"></div>
               </div>
               <div class="manual-delivery-section manual-section">
@@ -227,7 +236,7 @@
             <div>
               <p class="eyebrow">Registro en tiempo real</p>
               <h2>Repartos del día</h2>
-              <p class="muted">El repartidor agrega cada entrega aquí. Quedan pendientes hasta cerrar el día.</p>
+              <p class="muted">El repartidor agrega cada entrega aquí. Quedan pendientes hasta cerrar el turno.</p>
             </div>
             <div class="delivery-totals"><strong id="delivery-list-total">$0</strong><span><b id="delivery-list-count">0</b> repartos por cerrar</span></div>
           </div>
@@ -242,8 +251,42 @@
               </form>
             </section>
             <section class="panel delivery-list-card">
-              <div class="panel-head"><div><p class="eyebrow">Pendientes de cierre</p><h3>Entregas de hoy</h3></div><button class="text-button" id="clear-deliveries" type="button">Vaciar lista</button></div>
+              <div class="panel-head"><div><p class="eyebrow">Pendientes de cierre</p><h3>Entregas del turno</h3></div><button class="text-button" id="clear-deliveries" type="button">Vaciar lista</button></div>
               <div id="delivery-list"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-lista" aria-label="Lista de pedidos">
+        <div class="page-content">
+          <div class="section-intro">
+            <div><p class="eyebrow">Pedidos rápidos</p><h2>Lista</h2><p class="muted">Anota qué se vende, dónde entregarlo y a quién avisar por WhatsApp.</p></div>
+            <div class="delivery-totals"><strong id="order-list-count">0</strong><span>pedidos pendientes</span></div>
+          </div>
+          <div class="delivery-layout order-layout">
+            <section class="panel delivery-form-card">
+              <div class="panel-head"><div><p class="eyebrow">Nuevo pedido</p><h3>Agregar a la lista</h3></div><span class="delivery-local"><i></i> Guardado local</span></div>
+              <form id="order-form" novalidate>
+                <div class="order-product-picker" aria-label="Productos del pedido">
+                  <label for="order-category">Categoría<select id="order-category"><option value="">Selecciona una categoría</option></select></label>
+                  <label for="order-product">Producto y precio<select id="order-product" disabled><option value="">Primero selecciona una categoría</option></select></label>
+                  <label class="order-quantity-field" for="order-quantity">Cantidad<input id="order-quantity" required type="number" min="1" max="30" step="1" value="1" inputmode="numeric"></label>
+                  <label id="order-manual-price-field" class="order-manual-price-field" for="order-manual-price" hidden>Precio unitario<input id="order-manual-price" type="number" min="1" step="100" placeholder="$ 0" inputmode="numeric"></label>
+                  <button class="secondary-button order-add-product" type="button" id="add-order-product">Agregar producto <span aria-hidden="true">＋</span></button>
+                </div>
+                <div class="order-draft" aria-live="polite">
+                  <div class="order-draft-head"><div><p class="eyebrow">Detalle del pedido</p><strong id="order-draft-count">0 productos seleccionados</strong></div><strong id="order-draft-total">$0</strong></div>
+                  <div id="order-draft-list"></div>
+                </div>
+                <label for="order-address">Dirección<input id="order-address" required placeholder="Ej. Av. Central 123" autocomplete="street-address"></label>
+                <label for="order-contact">Persona y WhatsApp<input id="order-contact" required placeholder="Ej. Camila · +56912345678" autocomplete="tel"></label>
+                <button class="save-button" type="submit">Guardar pedido <span aria-hidden="true">＋</span></button>
+              </form>
+            </section>
+            <section class="panel delivery-list-card">
+              <div class="panel-head"><div><p class="eyebrow">Pendientes</p><h3>Pedidos por enviar</h3></div><button class="text-button" id="clear-orders" type="button">Vaciar lista</button></div>
+              <div id="order-list"></div>
             </section>
           </div>
         </div>
@@ -264,6 +307,7 @@
             <div class="report-grid">
               <article class="report-total"><p class="eyebrow">Total del periodo</p><strong id="report-total">$0</strong><span id="report-days">0 días registrados</span></article>
               <article class="report-stat"><p class="eyebrow">Productos vendidos</p><strong id="report-products">0</strong><span>unidades</span></article>
+              <article class="report-stat"><p class="eyebrow">Ganado en repartos</p><strong id="report-deliveries">$0</strong><span id="report-delivery-count">0 entregas</span></article>
               <article class="report-stat"><p class="eyebrow">Resultado neto</p><strong id="report-net">$0</strong><span id="report-payments">Pagos: $0</span></article>
             </div>
             <section class="report-chart-section" aria-label="Gráfico general del periodo">
@@ -306,6 +350,7 @@
       <button class="mobile-nav-item active" data-view="resumen" type="button" aria-current="page"><i class="icon" data-lucide="layout-dashboard" aria-hidden="true"></i><span>Resumen</span></button>
       <button class="mobile-nav-item" data-view="cierre" type="button"><i class="icon" data-lucide="plus" aria-hidden="true"></i><span>Cierre</span></button>
       <button class="mobile-nav-item" data-view="repartos" type="button"><i class="icon" data-lucide="bike" aria-hidden="true"></i><span>Repartos</span></button>
+      <button class="mobile-nav-item" data-view="lista" type="button"><i class="icon" data-lucide="clipboard-list" aria-hidden="true"></i><span>Lista</span></button>
       <button class="mobile-nav-item" data-view="reportes" type="button"><i class="icon" data-lucide="bar-chart-3" aria-hidden="true"></i><span>Reportes</span></button>
       <button class="mobile-nav-item" data-view="gastos" type="button"><i class="icon" data-lucide="wallet-cards" aria-hidden="true"></i><span>Gastos</span></button>
     </nav>
